@@ -1,0 +1,2281 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Plume Master — Défi Vectoriel</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #16161a;
+      --panel: #1f1f26;
+      --border: #32323e;
+      --acc: #2f6bff;
+      --acc-glow: rgba(47, 107, 255, 0.35);
+      --orange: #f49200;
+      --ok: #10b981;
+      --bad: #ef4444;
+    }
+    * { box-sizing: border-box; user-select: none; -webkit-user-select: none; }
+    html, body {
+      height: 100%;
+      margin: 0;
+      background: var(--bg);
+      color: #f4f4f6;
+      font-family: 'Inter', system-ui, sans-serif;
+      overflow: hidden;
+    }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    @keyframes ambientGradient {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    .animated-backdrop {
+      background: linear-gradient(-45deg, #13131b, #1a1d35, #14242d, #231833, #141824);
+      background-size: 350% 350%;
+      animation: ambientGradient 18s ease-in-out infinite;
+    }
+    svg#stage {
+      width: 100%;
+      height: 100%;
+      display: block;
+      touch-action: none;
+      background-color: transparent;
+      background-image:
+        linear-gradient(to right, rgba(255,255,255,0.035) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255,255,255,0.035) 1px, transparent 1px),
+        linear-gradient(to right, rgba(255,255,255,0.075) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255,255,255,0.075) 1px, transparent 1px);
+      background-size: 20px 20px, 20px 20px, 100px 100px, 100px 100px;
+    }
+    .btn-tool {
+      transition: all 0.15s ease;
+    }
+    .btn-tool.active {
+      background: var(--acc);
+      color: #fff;
+      border-color: #5b8cff;
+      box-shadow: 0 4px 14px var(--acc-glow);
+    }
+    .tool-tooltip {
+      position: fixed;
+      z-index: 60;
+      pointer-events: none;
+      background: #141419;
+      color: #f4f4f6;
+      border: 1px solid #3e3e4c;
+      border-radius: 0.5rem;
+      padding: 0.35rem 0.65rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      white-space: nowrap;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+      opacity: 0;
+      transform: translateX(-4px);
+      transition: opacity 0.16s ease, transform 0.16s ease;
+    }
+    .tool-tooltip.visible {
+      opacity: 1;
+      transform: translateX(0);
+    }
+    @keyframes pulseRing {
+      0% { transform: scale(0.95); opacity: 0.9; }
+      50% { transform: scale(1.15); opacity: 0.4; }
+      100% { transform: scale(0.95); opacity: 0.9; }
+    }
+    .close-ring {
+      transform-box: fill-box;
+      transform-origin: center;
+      animation: pulseRing 1.2s infinite ease-in-out;
+    }
+    @keyframes floatPraise {
+      0% { opacity: 0; transform: translate(-50%, 6px) scale(0.85); }
+      15% { opacity: 1; transform: translate(-50%, -8px) scale(1.06); }
+      80% { opacity: 1; transform: translate(-50%, -22px) scale(1); }
+      100% { opacity: 0; transform: translate(-50%, -32px) scale(0.96); }
+    }
+    .praise-toast {
+      position: fixed;
+      z-index: 55;
+      pointer-events: none;
+      padding: 0.32rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.8rem;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      color: #ffffff;
+      background: linear-gradient(135deg, #10b981, #059669);
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      box-shadow: 0 8px 22px rgba(16, 185, 129, 0.42);
+      white-space: nowrap;
+      animation: floatPraise 1.45s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+    .praise-toast.start {
+      background: linear-gradient(135deg, #2f6bff, #1d4ed8);
+      box-shadow: 0 8px 22px rgba(47, 107, 255, 0.45);
+    }
+  </style>
+</head>
+<body class="flex flex-col h-full">
+
+  <!-- BARRE SUPÉRIEURE (HUD) -->
+  <header class="h-14 bg-[#1f1f26] border-b border-[#32323e] px-3 sm:px-5 flex items-center justify-between gap-2 shrink-0 z-10">
+    <!-- Logo & Niveau -->
+    <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#f49200" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-7 h-7 shrink-0">
+          <path d="M12 2L5 13l3.5 4h7L19 13 12 2z"/>
+          <rect x="8.5" y="17" width="7" height="4" rx="0.5"/>
+          <line x1="12" y1="2" x2="12" y2="10.5"/>
+          <circle cx="12" cy="12.5" r="2"/>
+        </svg>
+        <div class="hidden sm:block">
+          <div class="font-bold text-sm leading-tight tracking-tight">Plume Master</div>
+          <div class="text-[11px] text-zinc-400" id="lvl-subtitle">Niveau 1 / 25</div>
+        </div>
+      </div>
+
+      <select id="lvl-select" class="bg-[#2a2a34] border border-[#3e3e4c] text-xs sm:text-sm rounded-lg px-2.5 py-1.5 font-medium text-white focus:outline-none focus:border-[#2f6bff] cursor-pointer"></select>
+    </div>
+
+    <!-- Indicateurs : Points d'ancrage, Chrono, Score -->
+    <div class="flex items-center gap-2 sm:gap-4">
+      <!-- Compteur de nœuds -->
+      <div id="node-badge" class="flex items-center gap-2 bg-[#282832] border border-[#383846] px-3 py-1.5 rounded-lg">
+        <span class="text-[11px] uppercase tracking-wider text-zinc-400 hidden md:inline">Points</span>
+        <span id="node-count" class="mono font-bold text-sm text-white">0</span>
+        <span class="text-xs text-zinc-400">/ <strong id="node-target" class="text-zinc-200">4</strong> <span class="text-[10px] text-amber-400">(±2)</span></span>
+      </div>
+
+      <!-- Décompte de temps -->
+      <div id="timer-badge" class="flex items-center gap-1.5 bg-[#282832] border border-[#383846] px-3 py-1.5 rounded-lg">
+        <span class="text-amber-400 text-xs">⏱</span>
+        <span id="timer-val" class="mono font-bold text-sm text-white">00:45</span>
+      </div>
+
+      <!-- Score cumulé -->
+      <div class="hidden sm:flex items-center gap-1.5 bg-[#282832] border border-[#383846] px-3 py-1.5 rounded-lg">
+        <span class="text-[11px] uppercase tracking-wider text-zinc-400">Score</span>
+        <span id="total-score" class="mono font-bold text-sm text-emerald-400">0</span>
+      </div>
+
+      <!-- Bouton Son -->
+      <button id="btn-sound" title="Activer/Couper le son" class="p-2 rounded-lg bg-[#282832] border border-[#383846] hover:border-zinc-500 text-xs">
+        🔊
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN CONTENT -->
+  <main class="flex-1 relative min-h-0 flex animated-backdrop">
+
+    <!-- BARRE D'OUTILS FLOTTANTE GAUCHE (Icônes uniquement, nom au survol prolongé) -->
+    <aside id="toolbar" class="absolute left-3 top-3 z-10 flex flex-col gap-1.5 bg-[#1f1f26]/95 backdrop-blur border border-[#32323e] p-1.5 rounded-xl shadow-xl">
+      <button id="tool-direct" data-label="Sélection directe / Retouche (A)" class="btn-tool w-11 h-11 rounded-lg border border-transparent text-zinc-300 hover:bg-[#2a2a35] flex items-center justify-center">
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="5.5,3 5.5,20.5 10.2,14.5 18.5,12"/>
+        </svg>
+      </button>
+      <button id="tool-pen" data-label="Plume (P)" class="btn-tool active w-11 h-11 rounded-lg border border-transparent flex items-center justify-center">
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2L5 13l3.5 4h7L19 13 12 2z"/>
+          <rect x="8.5" y="17" width="7" height="4" rx="0.5"/>
+          <line x1="12" y1="2" x2="12" y2="10.5"/>
+          <circle cx="12" cy="12.5" r="2"/>
+        </svg>
+      </button>
+      <button id="tool-penp" data-label="Ajouter un point (+)" class="btn-tool w-11 h-11 rounded-lg border border-transparent text-zinc-300 hover:bg-[#2a2a35] flex items-center justify-center">
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10.5 2L4 12l3 3.5h7L17 12 10.5 2z"/>
+          <rect x="7" y="15.5" width="7" height="3.5" rx="0.5"/>
+          <line x1="10.5" y1="2" x2="10.5" y2="9.5"/>
+          <line x1="18" y1="14" x2="18" y2="21"/>
+          <line x1="14.5" y1="17.5" x2="21.5" y2="17.5"/>
+        </svg>
+      </button>
+      <button id="tool-penm" data-label="Supprimer un point (−)" class="btn-tool w-11 h-11 rounded-lg border border-transparent text-zinc-300 hover:bg-[#2a2a35] flex items-center justify-center">
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10.5 2L4 12l3 3.5h7L17 12 10.5 2z"/>
+          <rect x="7" y="15.5" width="7" height="3.5" rx="0.5"/>
+          <line x1="10.5" y1="2" x2="10.5" y2="9.5"/>
+          <line x1="15" y1="18" x2="21.5" y2="18"/>
+        </svg>
+      </button>
+      <button id="tool-conv" data-label="Convertir le point (C)" class="btn-tool w-11 h-11 rounded-lg border border-transparent text-zinc-300 hover:bg-[#2a2a35] flex items-center justify-center">
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="8.5,20.5 5.5,4 19.5,11.5"/>
+        </svg>
+      </button>
+      <div class="h-px bg-[#32323e] my-0.5"></div>
+      <button id="btn-zoom-in" data-label="Zoom avant (Ctrl/Cmd + +)" class="btn-tool w-11 h-11 rounded-lg border border-transparent text-zinc-300 hover:bg-[#2a2a35] flex items-center justify-center">
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="7"/>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          <line x1="11" y1="8" x2="11" y2="14"/>
+          <line x1="8" y1="11" x2="14" y2="11"/>
+        </svg>
+      </button>
+      <button id="btn-zoom-out" data-label="Zoom arrière (Ctrl/Cmd + −)" class="btn-tool w-11 h-11 rounded-lg border border-transparent text-zinc-300 hover:bg-[#2a2a35] flex items-center justify-center">
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="7"/>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          <line x1="8" y1="11" x2="14" y2="11"/>
+        </svg>
+      </button>
+      <button id="btn-zoom-reset" data-label="Réinitialiser le zoom 100 % (Ctrl/Cmd + 0)" class="mono text-[10px] font-bold w-11 h-7 rounded-lg border border-transparent text-zinc-400 hover:text-white hover:bg-[#2a2a35] flex items-center justify-center">
+        100%
+      </button>
+      <div class="h-px bg-[#32323e] my-0.5"></div>
+      <button id="btn-hint-nodes" data-label="Afficher / Masquer les repères" class="btn-tool w-11 h-11 rounded-lg border border-transparent text-zinc-300 hover:bg-[#2a2a35] flex items-center justify-center">
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="8"/>
+          <line x1="12" y1="2" x2="12" y2="6"/>
+          <line x1="12" y1="18" x2="12" y2="22"/>
+          <line x1="2" y1="12" x2="6" y2="12"/>
+          <line x1="18" y1="12" x2="22" y2="12"/>
+        </svg>
+      </button>
+      <button id="btn-undo" data-label="Annuler (Ctrl+Z)" class="w-11 h-11 rounded-lg border border-transparent text-zinc-300 hover:bg-[#2a2a35] flex items-center justify-center">
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 14L4 9l5-5"/>
+          <path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11"/>
+        </svg>
+      </button>
+      <button id="btn-reset" data-label="Effacer le tracé" class="w-11 h-11 rounded-lg border border-transparent text-rose-400 hover:bg-rose-950/50 flex items-center justify-center">
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="3 6 5 6 21 6"/>
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+        </svg>
+      </button>
+    </aside>
+
+    <!-- Infobulle différée au survol prolongé des outils -->
+    <div id="tool-tooltip" class="tool-tooltip" role="tooltip"></div>
+
+    <!-- PANNEAU CONSIGNE & VALIDATION EN HAUT À DROITE -->
+    <div class="absolute right-3 top-3 z-10 flex flex-col items-end gap-2 max-w-[270px] sm:max-w-xs">
+      <div class="bg-[#1f1f26]/95 backdrop-blur border border-[#32323e] rounded-xl p-3 shadow-xl w-full">
+        <div class="flex items-center justify-between mb-1">
+          <span id="lvl-title" class="font-bold text-sm text-white">1. Le Triangle Net</span>
+          <span id="live-acc-pill" class="mono text-[11px] px-2 py-0.5 rounded bg-zinc-800 text-zinc-400">Précision : —</span>
+        </div>
+        <p id="lvl-desc" class="text-xs text-zinc-300 leading-relaxed mb-2.5">
+          Cliquez simplement sur les 3 sommets sans glisser pour créer des segments droits, puis fermez sur le point de départ.
+        </p>
+        <button id="btn-validate" disabled class="w-full py-2 px-3 rounded-lg font-bold text-xs uppercase tracking-wider transition-all bg-zinc-700 text-zinc-400 cursor-not-allowed">
+          Valider le tracé (Entrée)
+        </button>
+      </div>
+    </div>
+
+    <!-- CANEVAS VECTORIEL SVG -->
+    <svg id="stage" viewBox="0 0 900 620" preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <filter id="targetGlow" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="4" result="blur" />
+          <feComposite in="SourceGraphic" in2="blur" operator="over" />
+        </filter>
+      </defs>
+      <g id="viewport">
+        <g id="layer-target"></g>
+        <g id="layer-guides"></g>
+        <g id="layer-user"></g>
+        <g id="layer-ui"></g>
+      </g>
+    </svg>
+
+    <!-- CANEVAS DE PARTICULES (Explosions de bulles, éclats de lumière & confettis) -->
+    <canvas id="fx-canvas" class="fixed inset-0 pointer-events-none z-[60]"></canvas>
+
+    <!-- BARRE D'AIDE CONTEXTUELLE EN BAS -->
+    <div class="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 w-[94%] max-w-2xl pointer-events-none">
+      <div id="status-bar" class="bg-[#1f1f26]/90 backdrop-blur border border-[#32323e] rounded-xl px-4 py-1.5 text-xs text-zinc-300 text-center shadow-lg pointer-events-none">
+        <strong>Plume (P) :</strong> Clic = point d’angle · Clic-glissé = courbe · <kbd class="px-1 py-0.5 bg-zinc-800 rounded text-[10px]">Alt</kbd> = briser la poignée · <kbd class="px-1 py-0.5 bg-zinc-800 rounded text-[10px]">Maj</kbd> = 45°
+      </div>
+    </div>
+  </main>
+
+  <!-- MODALE DE RÉSULTATS / SCORE -->
+  <div id="result-modal" class="fixed inset-0 bg-black/75 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+    <div class="bg-[#1f1f26] border border-[#383846] rounded-2xl max-w-md w-full p-6 shadow-2xl flex flex-col gap-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <span id="res-badge" class="text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400">Niveau Réussi !</span>
+          <h2 id="res-title" class="text-xl font-extrabold text-white mt-1.5">Excellent contrôle !</h2>
+        </div>
+        <div id="res-stars" class="text-2xl tracking-widest">⭐⭐⭐</div>
+      </div>
+
+      <!-- Détail des métriques -->
+      <div class="bg-[#16161c] border border-[#2c2c36] rounded-xl p-4 flex flex-col gap-2.5 text-sm">
+        <div class="flex justify-between items-center">
+          <span class="text-zinc-400">Précision du tracé</span>
+          <span id="res-acc" class="mono font-bold text-white">96.4 %</span>
+        </div>
+        <div class="w-full h-2 bg-zinc-800 rounded-full overflow-hidden">
+          <div id="res-acc-bar" class="h-full bg-emerald-500 transition-all duration-500" style="width: 96%"></div>
+        </div>
+
+        <div class="flex justify-between items-center pt-1">
+          <span class="text-zinc-400">Points d'ancrage utilisés</span>
+          <span id="res-nodes" class="mono font-bold text-emerald-400">4 / 4 (Idéal)</span>
+        </div>
+
+        <div class="flex justify-between items-center">
+          <span class="text-zinc-400">Temps restant (Bonus vitesse)</span>
+          <span id="res-time" class="mono font-bold text-amber-400">+320 pts</span>
+        </div>
+
+        <div class="h-px bg-[#2c2c36] my-1"></div>
+
+        <div class="flex justify-between items-center text-base">
+          <span class="font-bold text-zinc-200">Points gagnés</span>
+          <span id="res-points" class="mono font-extrabold text-xl text-[#5b8cff]">+1 280 pts</span>
+        </div>
+      </div>
+
+      <p id="res-feedback" class="text-xs text-zinc-400 leading-relaxed"></p>
+
+      <div class="flex gap-2.5 pt-1">
+        <button id="btn-retry-modal" class="flex-1 py-2.5 px-4 rounded-xl border border-[#3e3e4e] bg-[#282832] hover:bg-[#32323f] font-semibold text-sm text-white transition">
+          Recommencer
+        </button>
+        <button id="btn-next-modal" class="flex-1 py-2.5 px-4 rounded-xl bg-[#2f6bff] hover:bg-[#2558d9] font-bold text-sm text-white shadow-lg shadow-blue-600/25 transition">
+          Niveau suivant →
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODALE DE DÉMARRAGE / RÈGLES -->
+  <div id="intro-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-[#1f1f26] border border-[#383846] rounded-2xl max-w-lg w-full p-6 shadow-2xl flex flex-col gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-11 h-11 rounded-xl bg-[#f49200]/15 border border-[#f49200]/40 flex items-center justify-center text-[#f49200]">
+          <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2L5 13l3.5 4h7L19 13 12 2z"/>
+            <rect x="8.5" y="17" width="7" height="4" rx="0.5"/>
+            <line x1="12" y1="2" x2="12" y2="10.5"/>
+            <circle cx="12" cy="12.5" r="2"/>
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-xl font-extrabold text-white">Plume Master</h1>
+          <p class="text-xs text-zinc-400">Entraînement intensif aux courbes de Bézier</p>
+        </div>
+      </div>
+
+      <div class="space-y-2.5 text-xs sm:text-sm text-zinc-300 leading-relaxed bg-[#16161c] p-4 rounded-xl border border-[#2c2c36]">
+        <p><strong class="text-white">1. Suivez le tracé épais :</strong> Redessinez la forme modèle à l'aide de l'outil Plume (<kbd class="px-1.5 py-0.5 bg-zinc-800 rounded text-xs">P</kbd>).</p>
+        <p><strong class="text-white">2. Économisez vos points :</strong> Chaque forme demande un nombre précis de points d'ancrage (<span class="text-amber-400 font-semibold">tolérance de ±2 points</span>). Utilisez le bouton <strong class="text-zinc-200">Repères</strong> pour visualiser les sommets et les <strong class="text-cyan-400">points d'inflexion</strong> (là où la courbe change de sens).</p>
+        <p><strong class="text-white">3. Étirez les vecteurs :</strong> Cliquez-glissez pour créer des tangentes fluides. Utilisez <kbd class="px-1.5 py-0.5 bg-zinc-800 rounded text-xs">Alt</kbd> pour casser une poignée sur un angle vif, et l'outil <strong class="text-[#5b8cff]">Retouche (A)</strong> pour peaufiner.</p>
+        <p><strong class="text-white">4. Battez le chrono :</strong> Plus vous êtes rapide et précis, plus votre score grimpe.</p>
+      </div>
+
+      <button id="btn-start-game" class="w-full py-3 rounded-xl bg-[#2f6bff] hover:bg-[#2558d9] font-bold text-sm text-white shadow-lg shadow-blue-600/30 transition">
+        Commencer le Défi
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // =========================================================================
+    // CONFIGURATION DES NIVEAUX (Modèles vectoriels avec courbes de Bézier)
+    // =========================================================================
+    // Chaque nœud : { x, y, hi?: {x,y}, ho?: {x,y} }
+    const LEVELS = [
+      {
+        id: 1,
+        title: "1. L'Équerre Angulaire",
+        desc: "Cliquez librement sur les 4 sommets du tracé sans glisser pour former des droites nettes, puis fermez sur votre premier point.",
+        color: { stroke: "rgba(244, 146, 0, 0.30)", dash: "rgba(244, 146, 0, 0.75)", fill: "rgba(244, 146, 0, 0.07)", hex: "#f49200" },
+        idealNodes: 4,
+        timeLimit: 70,
+        closed: true,
+        nodes: [
+          { x: 450, y: 150 },
+          { x: 640, y: 440 },
+          { x: 450, y: 370 },
+          { x: 260, y: 440 }
+        ]
+      },
+      {
+        id: 2,
+        title: "2. L'Arche Parfaite",
+        desc: "Placez 2 points aux angles de la base (clics simples) et 1 point au sommet en cliquant-glissant pour étirer les poignées.",
+        color: { stroke: "rgba(16, 185, 129, 0.30)", dash: "rgba(16, 185, 129, 0.75)", fill: "rgba(16, 185, 129, 0.07)", hex: "#10b981" },
+        idealNodes: 3,
+        timeLimit: 90,
+        closed: true,
+        nodes: [
+          { x: 260, y: 440, ho: { x: 260, y: 285 } },
+          { x: 450, y: 160, hi: { x: 345, y: 160 }, ho: { x: 555, y: 160 } },
+          { x: 640, y: 440, hi: { x: 640, y: 285 } }
+        ]
+      },
+      {
+        id: 3,
+        title: "3. Le Cercle en 4 Points",
+        desc: "Un cercle parfait se trace en 4 points n'importe où sur le contour (idéalement aux points cardinaux) en étirant les tangentes.",
+        color: { stroke: "rgba(6, 182, 212, 0.30)", dash: "rgba(6, 182, 212, 0.75)", fill: "rgba(6, 182, 212, 0.07)", hex: "#06b6d4" },
+        idealNodes: 4,
+        timeLimit: 100,
+        closed: true,
+        nodes: [
+          { x: 450, y: 120, hi: { x: 362, y: 120 }, ho: { x: 538, y: 120 } },
+          { x: 610, y: 280, hi: { x: 610, y: 192 }, ho: { x: 610, y: 368 } },
+          { x: 450, y: 440, hi: { x: 538, y: 440 }, ho: { x: 362, y: 440 } },
+          { x: 290, y: 280, hi: { x: 290, y: 368 }, ho: { x: 290, y: 192 } }
+        ]
+      },
+      {
+        id: 4,
+        title: "4. La Vague Sinusoïdale (Ouverte)",
+        desc: "Tracé ouvert en 3 points : tirez les poignées vers le haut à gauche, vers le bas au centre, et vers le haut à droite. Appuyez sur Entrée pour terminer.",
+        color: { stroke: "rgba(168, 85, 247, 0.32)", dash: "rgba(168, 85, 247, 0.80)", fill: "none", hex: "#a855f7" },
+        idealNodes: 3,
+        timeLimit: 100,
+        closed: false,
+        nodes: [
+          { x: 210, y: 330, ho: { x: 280, y: 160 } },
+          { x: 450, y: 330, hi: { x: 370, y: 490 }, ho: { x: 530, y: 170 } },
+          { x: 690, y: 330, hi: { x: 620, y: 500 } }
+        ]
+      },
+      {
+        id: 5,
+        title: "5. La Goutte d'Eau (Tangente brisée)",
+        desc: "La pointe supérieure est un angle vif entre deux courbes ! Utilisez Alt + glisser au sommet pour orienter la poignée sortante indépendamment.",
+        color: { stroke: "rgba(236, 72, 153, 0.30)", dash: "rgba(236, 72, 153, 0.75)", fill: "rgba(236, 72, 153, 0.07)", hex: "#ec4899" },
+        idealNodes: 4,
+        timeLimit: 120,
+        closed: true,
+        nodes: [
+          { x: 450, y: 105, hi: { x: 422, y: 190 }, ho: { x: 478, y: 190 } },
+          { x: 575, y: 330, hi: { x: 575, y: 255 }, ho: { x: 575, y: 400 } },
+          { x: 450, y: 455, hi: { x: 518, y: 455 }, ho: { x: 382, y: 455 } },
+          { x: 325, y: 330, hi: { x: 325, y: 400 }, ho: { x: 325, y: 255 } }
+        ]
+      },
+      {
+        id: 6,
+        title: "6. Le Cœur Symétrique",
+        desc: "Maîtrisez la touche Alt (Option) sur le creux supérieur et la pointe inférieure pour briser les tangentes et créer des lobes généreux.",
+        color: { stroke: "rgba(244, 63, 94, 0.30)", dash: "rgba(244, 63, 94, 0.75)", fill: "rgba(244, 63, 94, 0.07)", hex: "#f43f5e" },
+        idealNodes: 4,
+        timeLimit: 140,
+        closed: true,
+        nodes: [
+          { x: 450, y: 205, hi: { x: 425, y: 140 }, ho: { x: 475, y: 140 } },
+          { x: 620, y: 225, hi: { x: 585, y: 120 }, ho: { x: 640, y: 320 } },
+          { x: 450, y: 450, hi: { x: 515, y: 395 }, ho: { x: 385, y: 395 } },
+          { x: 280, y: 225, hi: { x: 260, y: 320 }, ho: { x: 315, y: 120 } }
+        ]
+      },
+      {
+        id: 7,
+        title: "7. L'Étoile Incurvée",
+        desc: "4 sommets avec courbes rentrantes. Cliquez-glissez sur chaque pointe en cassant les poignées avec Alt pour creuser les flancs.",
+        color: { stroke: "rgba(234, 179, 8, 0.30)", dash: "rgba(234, 179, 8, 0.75)", fill: "rgba(234, 179, 8, 0.07)", hex: "#eab308" },
+        idealNodes: 4,
+        timeLimit: 150,
+        closed: true,
+        nodes: [
+          { x: 450, y: 100, hi: { x: 425, y: 215 }, ho: { x: 475, y: 215 } },
+          { x: 655, y: 285, hi: { x: 530, y: 260 }, ho: { x: 530, y: 310 } },
+          { x: 450, y: 465, hi: { x: 475, y: 355 }, ho: { x: 425, y: 355 } },
+          { x: 245, y: 285, hi: { x: 370, y: 310 }, ho: { x: 370, y: 260 } }
+        ]
+      },
+      {
+        id: 8,
+        title: "8. La Boucle Typographique « S »",
+        desc: "Tracez cette courbe en S épaisse avec un minimum de points (5 à 7 points) et ajustez vos tangentes avec l'outil Retouche (A).",
+        color: { stroke: "rgba(20, 184, 166, 0.32)", dash: "rgba(20, 184, 166, 0.80)", fill: "none", hex: "#14b8a6" },
+        idealNodes: 5,
+        timeLimit: 180,
+        closed: false,
+        nodes: [
+          { x: 545, y: 175, ho: { x: 485, y: 120 } },
+          { x: 365, y: 205, hi: { x: 375, y: 130 }, ho: { x: 355, y: 280 } },
+          { x: 455, y: 315, hi: { x: 405, y: 295 }, ho: { x: 510, y: 335 } },
+          { x: 540, y: 425, hi: { x: 555, y: 360 }, ho: { x: 525, y: 495 } },
+          { x: 345, y: 445, hi: { x: 415, y: 505 } }
+        ]
+      },
+      {
+        id: 9,
+        title: "9. La Feuille Végétale",
+        desc: "Deux pointes effilées reliées par deux courbes harmonieuses en amande. Posez uniquement 2 points d'ancrage et utilisez Alt pour briser les poignées aux extrémités.",
+        color: { stroke: "rgba(132, 204, 22, 0.30)", dash: "rgba(132, 204, 22, 0.78)", fill: "rgba(132, 204, 22, 0.07)", hex: "#84cc16" },
+        idealNodes: 2,
+        timeLimit: 100,
+        closed: true,
+        nodes: [
+          { x: 250, y: 410, hi: { x: 430, y: 455 }, ho: { x: 280, y: 215 } },
+          { x: 650, y: 170, hi: { x: 465, y: 125 }, ho: { x: 615, y: 365 } }
+        ]
+      },
+      {
+        id: 10,
+        title: "10. Le Croissant de Lune",
+        desc: "Deux arcs purs rejoignant des cornes fines : placez un point sur chaque pointe (en cassant les poignées avec Alt) et un point au milieu de chaque arc.",
+        color: { stroke: "rgba(99, 102, 241, 0.30)", dash: "rgba(99, 102, 241, 0.78)", fill: "rgba(99, 102, 241, 0.08)", hex: "#6366f1" },
+        idealNodes: 4,
+        timeLimit: 130,
+        closed: true,
+        nodes: [
+          { x: 540, y: 125, hi: { x: 455, y: 165 }, ho: { x: 355, y: 115 } },
+          { x: 285, y: 295, hi: { x: 285, y: 195 }, ho: { x: 285, y: 395 } },
+          { x: 540, y: 465, hi: { x: 355, y: 475 }, ho: { x: 455, y: 425 } },
+          { x: 415, y: 295, hi: { x: 415, y: 365 }, ho: { x: 415, y: 225 } }
+        ]
+      },
+      {
+        id: 11,
+        title: "11. Le Nuage Cotonneux",
+        desc: "Tracez une base bien plate puis enchaînez les trois dômes arrondis du nuage en cassant les poignées avec Alt (Option) dans chaque creux.",
+        color: { stroke: "rgba(56, 189, 248, 0.30)", dash: "rgba(56, 189, 248, 0.78)", fill: "rgba(56, 189, 248, 0.07)", hex: "#38bdf8" },
+        idealNodes: 5,
+        timeLimit: 150,
+        closed: true,
+        nodes: [
+          { x: 260, y: 405, ho: { x: 185, y: 405 } },
+          { x: 325, y: 265, hi: { x: 205, y: 285 }, ho: { x: 345, y: 150 } },
+          { x: 545, y: 255, hi: { x: 485, y: 140 }, ho: { x: 615, y: 235 } },
+          { x: 635, y: 405, hi: { x: 705, y: 345 } },
+          { x: 450, y: 405 }
+        ]
+      },
+      {
+        id: 12,
+        title: "12. Le Signe Infini (Lemniscate)",
+        desc: "Une boucle symétrique parfaite avec deux points d'inflexion au croisement central. Placez 4 points aux extrémités gauche, droite et aux croisements.",
+        color: { stroke: "rgba(249, 115, 22, 0.30)", dash: "rgba(249, 115, 22, 0.78)", fill: "none", hex: "#f97316" },
+        idealNodes: 4,
+        timeLimit: 160,
+        closed: true,
+        nodes: [
+          { x: 235, y: 295, hi: { x: 235, y: 375 }, ho: { x: 235, y: 215 } },
+          { x: 450, y: 295, hi: { x: 375, y: 185 }, ho: { x: 525, y: 405 } },
+          { x: 665, y: 295, hi: { x: 665, y: 375 }, ho: { x: 665, y: 215 } },
+          { x: 450, y: 295, hi: { x: 525, y: 185 }, ho: { x: 375, y: 405 } }
+        ]
+      },
+      {
+        id: 13,
+        title: "13. La Flamme Organique",
+        desc: "Une flamme élancée et asymétrique : utilisez Alt sur la pointe principale et la flammèche latérale pour creuser les courbes en S.",
+        color: { stroke: "rgba(239, 68, 68, 0.30)", dash: "rgba(239, 68, 68, 0.78)", fill: "rgba(239, 68, 68, 0.08)", hex: "#ef4444" },
+        idealNodes: 5,
+        timeLimit: 170,
+        closed: true,
+        nodes: [
+          { x: 475, y: 95, hi: { x: 410, y: 175 }, ho: { x: 455, y: 195 } },
+          { x: 580, y: 345, hi: { x: 550, y: 245 }, ho: { x: 590, y: 425 } },
+          { x: 445, y: 465, hi: { x: 525, y: 465 }, ho: { x: 355, y: 465 } },
+          { x: 335, y: 270, hi: { x: 300, y: 390 }, ho: { x: 355, y: 315 } },
+          { x: 395, y: 295, hi: { x: 375, y: 335 }, ho: { x: 390, y: 215 } }
+        ]
+      },
+      {
+        id: 14,
+        title: "14. La Spirale Volute (Défi Ultime)",
+        desc: "Enroulement harmonieux en 6 points : contrôlez la diminution régulière de vos tangentes vers le centre.",
+        color: { stroke: "rgba(217, 70, 239, 0.32)", dash: "rgba(217, 70, 239, 0.80)", fill: "none", hex: "#d946ef" },
+        idealNodes: 6,
+        timeLimit: 200,
+        closed: false,
+        nodes: [
+          { x: 245, y: 310, ho: { x: 245, y: 185 } },
+          { x: 455, y: 130, hi: { x: 340, y: 130 }, ho: { x: 570, y: 130 } },
+          { x: 645, y: 305, hi: { x: 645, y: 205 }, ho: { x: 645, y: 405 } },
+          { x: 465, y: 460, hi: { x: 565, y: 460 }, ho: { x: 375, y: 460 } },
+          { x: 345, y: 325, hi: { x: 345, y: 400 }, ho: { x: 345, y: 260 } },
+          { x: 465, y: 245, hi: { x: 400, y: 245 } }
+        ]
+      },
+      {
+        id: 15,
+        title: "15. La Tasse de Café",
+        desc: "Tracez le rebord supérieur plat, les parois arrondies de la tasse et l'anse latérale en brisant les tangentes avec Alt.",
+        color: { stroke: "rgba(217, 119, 6, 0.32)", dash: "rgba(217, 119, 6, 0.80)", fill: "rgba(217, 119, 6, 0.08)", hex: "#d97706" },
+        idealNodes: 6,
+        timeLimit: 140,
+        closed: true,
+        nodes: [
+          { x: 290, y: 185 },
+          { x: 530, y: 185 },
+          { x: 530, y: 225, ho: { x: 645, y: 215 } },
+          { x: 520, y: 345, hi: { x: 640, y: 355 }, ho: { x: 500, y: 435 } },
+          { x: 410, y: 440, hi: { x: 465, y: 440 }, ho: { x: 355, y: 440 } },
+          { x: 290, y: 185, hi: { x: 290, y: 365 } }
+        ]
+      },
+      {
+        id: 16,
+        title: "16. Le Poisson Profilé",
+        desc: "Un corps fuselé terminé par une nageoire caudale en angle : utilisez Alt aux jonctions de la queue pour passer d'une courbe fluide à des segments nets.",
+        color: { stroke: "rgba(14, 165, 233, 0.30)", dash: "rgba(14, 165, 233, 0.78)", fill: "rgba(14, 165, 233, 0.08)", hex: "#0ea5e9" },
+        idealNodes: 6,
+        timeLimit: 150,
+        closed: true,
+        nodes: [
+          { x: 220, y: 295, hi: { x: 295, y: 385 }, ho: { x: 295, y: 205 } },
+          { x: 545, y: 270, hi: { x: 455, y: 180 } },
+          { x: 675, y: 195 },
+          { x: 630, y: 295 },
+          { x: 675, y: 395 },
+          { x: 545, y: 320, ho: { x: 455, y: 410 } }
+        ]
+      },
+      {
+        id: 17,
+        title: "17. Le Bonhomme de Neige",
+        desc: "Deux boules superposées : placez des points aux étranglements des hanches et brisez les poignées avec Alt (Option) pour passer de la tête au ventre.",
+        color: { stroke: "rgba(148, 163, 184, 0.34)", dash: "rgba(226, 232, 240, 0.85)", fill: "rgba(226, 232, 240, 0.08)", hex: "#e2e8f0" },
+        idealNodes: 6,
+        timeLimit: 160,
+        closed: true,
+        nodes: [
+          { x: 450, y: 110, hi: { x: 390, y: 110 }, ho: { x: 510, y: 110 } },
+          { x: 505, y: 225, hi: { x: 535, y: 170 }, ho: { x: 595, y: 265 } },
+          { x: 450, y: 470, hi: { x: 585, y: 470 }, ho: { x: 315, y: 470 } },
+          { x: 395, y: 225, hi: { x: 305, y: 265 }, ho: { x: 365, y: 170 } }
+        ]
+      },
+      {
+        id: 18,
+        title: "18. Le Chandail",
+        desc: "Combinaison d'angles droits (manches, ourlet) et d'une encolure creusée : utilisez Alt aux épaules pour courber le col sans déformer les manches.",
+        color: { stroke: "rgba(52, 211, 153, 0.30)", dash: "rgba(52, 211, 153, 0.78)", fill: "rgba(52, 211, 153, 0.07)", hex: "#34d399" },
+        idealNodes: 10,
+        timeLimit: 170,
+        closed: true,
+        nodes: [
+          { x: 390, y: 145, ho: { x: 425, y: 195 } },
+          { x: 510, y: 145, hi: { x: 475, y: 195 } },
+          { x: 665, y: 215 },
+          { x: 625, y: 285 },
+          { x: 555, y: 255 },
+          { x: 555, y: 455 },
+          { x: 345, y: 455 },
+          { x: 345, y: 255 },
+          { x: 275, y: 285 },
+          { x: 235, y: 215 }
+        ]
+      },
+      {
+        id: 19,
+        title: "19. La Voiture Citadine",
+        desc: "Tracez le toit bombé, le capot et les deux passages de roues demi-circulaires en plaçant un point de tangence au sommet de chaque arche.",
+        color: { stroke: "rgba(251, 191, 36, 0.30)", dash: "rgba(251, 191, 36, 0.80)", fill: "rgba(251, 191, 36, 0.08)", hex: "#fbbf24" },
+        idealNodes: 13,
+        timeLimit: 190,
+        closed: true,
+        nodes: [
+          { x: 185, y: 375 },
+          { x: 185, y: 310, ho: { x: 195, y: 275 } },
+          { x: 285, y: 265 },
+          { x: 355, y: 185, ho: { x: 425, y: 175 } },
+          { x: 525, y: 185, ho: { x: 575, y: 215 } },
+          { x: 605, y: 265, ho: { x: 685, y: 270 } },
+          { x: 705, y: 375 },
+          { x: 625, y: 375, ho: { x: 625, y: 350 } },
+          { x: 580, y: 330, hi: { x: 605, y: 330 }, ho: { x: 555, y: 330 } },
+          { x: 535, y: 375, hi: { x: 535, y: 350 } },
+          { x: 355, y: 375, ho: { x: 355, y: 350 } },
+          { x: 310, y: 330, hi: { x: 335, y: 330 }, ho: { x: 285, y: 330 } },
+          { x: 265, y: 375, hi: { x: 265, y: 350 } }
+        ]
+      },
+      {
+        id: 20,
+        title: "20. La Chauve-Souris",
+        desc: "Enchaînez les oreilles pointues et les festons échancrés sous les ailes en cassant systématiquement les poignées avec Alt (Option).",
+        color: { stroke: "rgba(167, 139, 250, 0.32)", dash: "rgba(167, 139, 250, 0.80)", fill: "rgba(167, 139, 250, 0.08)", hex: "#a78bfa" },
+        idealNodes: 11,
+        timeLimit: 210,
+        closed: true,
+        nodes: [
+          { x: 450, y: 225 },
+          { x: 472, y: 175 },
+          { x: 492, y: 225, ho: { x: 565, y: 155 } },
+          { x: 715, y: 205, hi: { x: 645, y: 155 }, ho: { x: 665, y: 265 } },
+          { x: 615, y: 345, hi: { x: 675, y: 305 }, ho: { x: 575, y: 305 } },
+          { x: 515, y: 355, hi: { x: 545, y: 305 }, ho: { x: 485, y: 325 } },
+          { x: 450, y: 395, hi: { x: 465, y: 355 }, ho: { x: 435, y: 355 } },
+          { x: 385, y: 355, hi: { x: 415, y: 325 }, ho: { x: 355, y: 305 } },
+          { x: 285, y: 345, hi: { x: 325, y: 305 }, ho: { x: 225, y: 305 } },
+          { x: 185, y: 205, hi: { x: 235, y: 265 }, ho: { x: 255, y: 155 } },
+          { x: 408, y: 225, hi: { x: 335, y: 155 } },
+          { x: 428, y: 175 }
+        ]
+      },
+      {
+        id: 21,
+        title: "21. La Couronne Royale",
+        desc: "Alternez les pointes aiguës et les creux arrondis entre chaque fleuron à l'aide de la touche Alt (Option).",
+        color: { stroke: "rgba(250, 204, 21, 0.34)", dash: "rgba(250, 204, 21, 0.85)", fill: "rgba(250, 204, 21, 0.08)", hex: "#facc15" },
+        idealNodes: 9,
+        timeLimit: 190,
+        closed: true,
+        nodes: [
+          { x: 265, y: 420 },
+          { x: 225, y: 215 },
+          { x: 335, y: 305, hi: { x: 280, y: 315 }, ho: { x: 390, y: 295 } },
+          { x: 450, y: 155 },
+          { x: 565, y: 305, hi: { x: 510, y: 295 }, ho: { x: 620, y: 315 } },
+          { x: 675, y: 215 },
+          { x: 635, y: 420 }
+        ]
+      },
+      {
+        id: 22,
+        title: "22. Le Cactus Saguaro",
+        desc: "Tracez le tronc central et les deux bras latéraux arrondis du cactus en plaçant un point de tangence au sommet de chaque demi-cercle.",
+        color: { stroke: "rgba(34, 197, 94, 0.34)", dash: "rgba(34, 197, 94, 0.85)", fill: "rgba(34, 197, 94, 0.08)", hex: "#22c55e" },
+        idealNodes: 15,
+        timeLimit: 200,
+        closed: true,
+        nodes: [
+          { x: 412, y: 475 },
+          { x: 412, y: 315, ho: { x: 325, y: 325 } },
+          { x: 320, y: 215, hi: { x: 320, y: 275 }, ho: { x: 320, y: 202 } },
+          { x: 344, y: 191, hi: { x: 331, y: 191 }, ho: { x: 357, y: 191 } },
+          { x: 368, y: 215, hi: { x: 368, y: 202 }, ho: { x: 368, y: 255 } },
+          { x: 412, y: 268, hi: { x: 382, y: 270 } },
+          { x: 412, y: 145, ho: { x: 412, y: 124 } },
+          { x: 450, y: 107, hi: { x: 429, y: 107 }, ho: { x: 471, y: 107 } },
+          { x: 488, y: 145, hi: { x: 488, y: 124 } },
+          { x: 488, y: 245, ho: { x: 518, y: 247 } },
+          { x: 532, y: 192, hi: { x: 532, y: 232 }, ho: { x: 532, y: 179 } },
+          { x: 556, y: 168, hi: { x: 543, y: 168 }, ho: { x: 569, y: 168 } },
+          { x: 580, y: 192, hi: { x: 580, y: 179 }, ho: { x: 580, y: 252 } },
+          { x: 488, y: 292, hi: { x: 575, y: 302 } },
+          { x: 488, y: 475 }
+        ]
+      },
+      {
+        id: 23,
+        title: "23. L'Amphore Antique",
+        desc: "Un vase galbé aux courbes en S inversées : surveillez les points d'inflexion sur les flancs et les anses latérales.",
+        color: { stroke: "rgba(251, 113, 133, 0.34)", dash: "rgba(251, 113, 133, 0.85)", fill: "rgba(251, 113, 133, 0.08)", hex: "#fb7185" },
+        idealNodes: 10,
+        timeLimit: 210,
+        closed: true,
+        nodes: [
+          { x: 385, y: 135 },
+          { x: 515, y: 135 },
+          { x: 495, y: 195, hi: { x: 495, y: 165 }, ho: { x: 625, y: 215 } },
+          { x: 545, y: 345, hi: { x: 625, y: 285 }, ho: { x: 530, y: 415 } },
+          { x: 505, y: 465 },
+          { x: 395, y: 465 },
+          { x: 355, y: 345, hi: { x: 370, y: 415 }, ho: { x: 275, y: 285 } },
+          { x: 405, y: 195, hi: { x: 275, y: 215 }, ho: { x: 405, y: 165 } }
+        ]
+      },
+      {
+        id: 24,
+        title: "24. La Note Double (Croches)",
+        desc: "Reliez la barre supérieure inclinée aux deux hampes verticales et tracez les deux têtes de notes ovales bien arrondies.",
+        color: { stroke: "rgba(96, 165, 250, 0.36)", dash: "rgba(96, 165, 250, 0.88)", fill: "rgba(96, 165, 250, 0.08)", hex: "#60a5fa" },
+        idealNodes: 12,
+        timeLimit: 220,
+        closed: true,
+        nodes: [
+          { x: 375, y: 165 },
+          { x: 605, y: 110 },
+          { x: 605, y: 365, ho: { x: 605, y: 405 } },
+          { x: 545, y: 438, hi: { x: 585, y: 432 }, ho: { x: 500, y: 445 } },
+          { x: 475, y: 392, hi: { x: 472, y: 422 }, ho: { x: 478, y: 358 } },
+          { x: 545, y: 332, hi: { x: 502, y: 336 }, ho: { x: 572, y: 330 } },
+          { x: 583, y: 342 },
+          { x: 583, y: 170 },
+          { x: 398, y: 215 },
+          { x: 398, y: 420, ho: { x: 398, y: 460 } },
+          { x: 338, y: 493, hi: { x: 378, y: 487 }, ho: { x: 293, y: 500 } },
+          { x: 268, y: 447, hi: { x: 265, y: 477 }, ho: { x: 271, y: 413 } },
+          { x: 338, y: 387, hi: { x: 295, y: 391 }, ho: { x: 365, y: 385 } },
+          { x: 375, y: 397 }
+        ]
+      },
+      {
+        id: 25,
+        title: "25. Le Papillon (Précision Chirurgicale 3 px)",
+        desc: "Épreuve finale avec un gabarit ultra-fin de 3 pixels : maîtrisez chaque lobe d'aile et brisez les tangentes avec Alt pour une précision chirurgicale.",
+        color: { stroke: "rgba(244, 146, 0, 0.45)", dash: "rgba(244, 146, 0, 0.92)", fill: "rgba(244, 146, 0, 0.09)", hex: "#f49200" },
+        idealNodes: 12,
+        timeLimit: 240,
+        closed: true,
+        nodes: [
+          { x: 450, y: 235 },
+          { x: 470, y: 235, ho: { x: 545, y: 115 } },
+          { x: 685, y: 175, hi: { x: 645, y: 115 }, ho: { x: 695, y: 245 } },
+          { x: 595, y: 305, hi: { x: 655, y: 295 }, ho: { x: 675, y: 355 } },
+          { x: 545, y: 455, hi: { x: 645, y: 445 }, ho: { x: 485, y: 435 } },
+          { x: 465, y: 375 },
+          { x: 450, y: 405 },
+          { x: 435, y: 375 },
+          { x: 355, y: 455, hi: { x: 415, y: 435 }, ho: { x: 255, y: 445 } },
+          { x: 305, y: 305, hi: { x: 225, y: 355 }, ho: { x: 245, y: 295 } },
+          { x: 215, y: 175, hi: { x: 205, y: 245 }, ho: { x: 255, y: 115 } },
+          { x: 430, y: 235, hi: { x: 355, y: 115 } }
+        ]
+      }
+    ];
+
+    // =========================================================================
+    // ÉTAT DU JEU ET AUDIO
+    // =========================================================================
+    const $ = s => document.querySelector(s);
+    const svg = $('#stage');
+    const viewport = $('#viewport');
+    const LTarget = $('#layer-target');
+    const LGuides = $('#layer-guides');
+    const LUser = $('#layer-user');
+    const LUi = $('#layer-ui');
+
+    let levelIdx = 0;
+    let totalScore = 0;
+    let soundOn = true;
+    let showTargetNodes = false;
+
+    // État du zoom et panoramique (Viewport)
+    let zoomLevel = 1;
+    let panX = 0;
+    let panY = 0;
+    let spacePressed = false;
+    let panDrag = null;
+
+    // État du tracé utilisateur
+    let userPath = { nodes: [], closed: false };
+    let tool = 'pen'; // 'pen' | 'penp' | 'penm' | 'direct' | 'conv'
+    let isDrawing = true;
+    let drag = null;
+    let mouse = { x: 450, y: 310 };
+    let selectedNodeIdx = -1;
+    let undoStack = [];
+    let matchedTargetIndices = new Set();
+
+    // Chronomètre
+    let timeLeft = 35;
+    let timerInterval = null;
+    let levelCompleted = false;
+
+    // =========================================================================
+    // EFFETS SONORES (TONE.JS)
+    // =========================================================================
+    let synth = null;
+    function initAudio() {
+      if (synth || typeof Tone === 'undefined') return;
+      try {
+        synth = new Tone.PolySynth(Tone.Synth, {
+          oscillator: { type: "triangle" },
+          envelope: { attack: 0.005, decay: 0.1, sustain: 0.05, release: 0.2 },
+          volume: -12
+        }).toDestination();
+      } catch (e) {}
+    }
+
+    function playTone(note, duration = "16n", delay = 0) {
+      if (!soundOn) return;
+      try {
+        initAudio();
+        if (Tone.context.state !== 'running') Tone.start();
+        if (synth) synth.triggerAttackRelease(note, duration, Tone.now() + delay);
+      } catch (e) {}
+    }
+
+    function playSuccessFanfare() {
+      playTone("C5", "16n", 0);
+      playTone("E5", "16n", 0.08);
+      playTone("G5", "16n", 0.16);
+      playTone("C6", "8n", 0.24);
+    }
+
+    function playErrorTone() {
+      playTone("G3", "16n", 0);
+      playTone("F#3", "8n", 0.1);
+    }
+
+    // =========================================================================
+    // OUTILS GÉOMÉTRIQUES & COURBES DE BÉZIER
+    // =========================================================================
+    const R = v => Math.round(v * 100) / 100;
+
+    function clientToSvg(e) {
+      const pt = svg.createSVGPoint();
+      pt.x = e.clientX;
+      pt.y = e.clientY;
+      const ctm = svg.getScreenCTM();
+      if (!ctm) return { x: 450, y: 310 };
+      const p = pt.matrixTransform(ctm.inverse());
+      return {
+        x: (p.x - panX) / zoomLevel,
+        y: (p.y - panY) / zoomLevel
+      };
+    }
+
+    function updateViewportTransform() {
+      if (viewport) {
+        viewport.setAttribute('transform', `translate(${R(panX)} ${R(panY)}) scale(${R(zoomLevel)})`);
+      }
+      const resetBtn = $('#btn-zoom-reset');
+      if (resetBtn) {
+        resetBtn.textContent = `${Math.round(zoomLevel * 100)}%`;
+      }
+    }
+
+    function setZoom(newZoom, pivotSvgX = 450, pivotSvgY = 310) {
+      const clamped = Math.max(0.4, Math.min(4, newZoom));
+      if (Math.abs(clamped - zoomLevel) < 0.001) return;
+      const screenX = pivotSvgX * zoomLevel + panX;
+      const screenY = pivotSvgY * zoomLevel + panY;
+      zoomLevel = clamped;
+      panX = screenX - pivotSvgX * zoomLevel;
+      panY = screenY - pivotSvgY * zoomLevel;
+      updateViewportTransform();
+      render();
+    }
+
+    function resetZoom() {
+      zoomLevel = 1;
+      panX = 0;
+      panY = 0;
+      updateViewportTransform();
+      render();
+    }
+
+    function snapAngle(origin, p, shift) {
+      if (!shift || !origin) return p;
+      const dx = p.x - origin.x;
+      const dy = p.y - origin.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist < 1e-4) return p;
+      const ang = Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) * (Math.PI / 4);
+      return {
+        x: origin.x + Math.cos(ang) * dist,
+        y: origin.y + Math.sin(ang) * dist
+      };
+    }
+
+    function buildPathD(pathObj) {
+      const n = pathObj.nodes;
+      if (!n || !n.length) return '';
+      let d = `M ${R(n[0].x)} ${R(n[0].y)}`;
+      const seg = (a, b) => {
+        const c1 = a.ho || a;
+        const c2 = b.hi || b;
+        if (a.ho || b.hi) {
+          d += ` C ${R(c1.x)} ${R(c1.y)}, ${R(c2.x)} ${R(c2.y)}, ${R(b.x)} ${R(b.y)}`;
+        } else {
+          d += ` L ${R(b.x)} ${R(b.y)}`;
+        }
+      };
+      for (let i = 1; i < n.length; i++) seg(n[i - 1], n[i]);
+      if (pathObj.closed && n.length > 1) {
+        seg(n[n.length - 1], n[0]);
+        d += ' Z';
+      }
+      return d;
+    }
+
+    function evalBezier(a, c1, c2, b, t) {
+      const u = 1 - t;
+      return {
+        x: u * u * u * a.x + 3 * u * u * t * c1.x + 3 * u * t * t * c2.x + t * t * t * b.x,
+        y: u * u * u * a.y + 3 * u * u * t * c1.y + 3 * u * t * t * c2.y + t * t * t * b.y
+      };
+    }
+
+    function findClosestEdge(p, maxDist) {
+      const n = userPath.nodes;
+      if (n.length < 2) return null;
+      let best = null;
+      let bd = maxDist;
+      const segCount = userPath.closed ? n.length : n.length - 1;
+      for (let i = 0; i < segCount; i++) {
+        const a = n[i];
+        const b = n[(i + 1) % n.length];
+        const c1 = a.ho || a;
+        const c2 = b.hi || b;
+        for (let k = 1; k < 32; k++) {
+          const t = k / 32;
+          const ptOnCurve = evalBezier(a, c1, c2, b, t);
+          const d = Math.hypot(ptOnCurve.x - p.x, ptOnCurve.y - p.y);
+          if (d < bd) {
+            bd = d;
+            best = { segIdx: i, t, pt: ptOnCurve };
+          }
+        }
+      }
+      return best;
+    }
+
+    function splitUserSegmentAt(segIdx, t) {
+      const n = userPath.nodes;
+      const a = n[segIdx];
+      const nextIdx = (segIdx + 1) % n.length;
+      const b = n[nextIdx];
+      const p0 = { x: a.x, y: a.y };
+      const p1 = a.ho ? { x: a.ho.x, y: a.ho.y } : p0;
+      const p2 = b.hi ? { x: b.hi.x, y: b.hi.y } : { x: b.x, y: b.y };
+      const p3 = { x: b.x, y: b.y };
+
+      const lerp = (u, v) => ({ x: u.x + (v.x - u.x) * t, y: u.y + (v.y - u.y) * t });
+      const p01 = lerp(p0, p1), p12 = lerp(p1, p2), p23 = lerp(p2, p3);
+      const p012 = lerp(p01, p12), p123 = lerp(p12, p23);
+      const p0123 = lerp(p012, p123);
+
+      const isCurve = !!(a.ho || b.hi);
+      if (isCurve) {
+        a.ho = p01;
+        b.hi = p23;
+      }
+      const newNode = { x: p0123.x, y: p0123.y };
+      if (isCurve) {
+        newNode.hi = p012;
+        newNode.ho = p123;
+      }
+      n.splice(segIdx + 1, 0, newNode);
+      selectedNodeIdx = segIdx + 1;
+      return newNode;
+    }
+
+    function deleteUserNode(idx, keepCurve) {
+      const n = userPath.nodes;
+      if (n.length <= 1) {
+        n.splice(idx, 1);
+        selectedNodeIdx = -1;
+        return;
+      }
+      if (keepCurve && n.length >= 3) {
+        const prevIdx = (idx - 1 + n.length) % n.length;
+        const nextIdx = (idx + 1) % n.length;
+        if (userPath.closed || (idx > 0 && idx < n.length - 1)) {
+          const A = n[prevIdx], B = n[idx], C = n[nextIdx];
+          const dAB = Math.hypot(B.x - A.x, B.y - A.y);
+          const dBC = Math.hypot(C.x - B.x, C.y - B.y);
+          const t = dAB / ((dAB + dBC) || 1);
+          if (t > 0 && t < 1) {
+            if (A.ho) A.ho = { x: A.x + (A.ho.x - A.x) / t, y: A.y + (A.ho.y - A.y) / t };
+            if (C.hi) C.hi = { x: C.x + (C.hi.x - C.x) / (1 - t), y: C.y + (C.hi.y - C.y) / (1 - t) };
+          }
+        }
+      }
+      n.splice(idx, 1);
+      if (n.length < 3) userPath.closed = false;
+      selectedNodeIdx = Math.min(idx, n.length - 1);
+    }
+
+    function samplePathPoints(pathObj, stepsPerSeg = 32) {
+      const n = pathObj.nodes;
+      if (!n || n.length < 2) return n ? [...n] : [];
+      const pts = [];
+      const segCount = pathObj.closed ? n.length : n.length - 1;
+      for (let i = 0; i < segCount; i++) {
+        const a = n[i];
+        const b = n[(i + 1) % n.length];
+        const c1 = a.ho || a;
+        const c2 = b.hi || b;
+        for (let k = 0; k < stepsPerSeg; k++) {
+          const t = k / stepsPerSeg;
+          const u = 1 - t;
+          pts.push({
+            x: u * u * u * a.x + 3 * u * u * t * c1.x + 3 * u * t * t * c2.x + t * t * t * b.x,
+            y: u * u * u * a.y + 3 * u * u * t * c1.y + 3 * u * t * t * c2.y + t * t * t * b.y
+          });
+        }
+      }
+      if (!pathObj.closed) pts.push({ x: n[n.length - 1].x, y: n[n.length - 1].y });
+      return pts;
+    }
+
+    function findInflectionPoints(pathObj) {
+      const n = pathObj.nodes;
+      if (!n || n.length < 2) return [];
+      const pts = [];
+      const segCount = pathObj.closed ? n.length : n.length - 1;
+
+      for (let i = 0; i < segCount; i++) {
+        const a = n[i];
+        const b = n[(i + 1) % n.length];
+        if (!a.ho && !b.hi) continue;
+
+        const p0 = { x: a.x, y: a.y };
+        const p1 = a.ho ? { x: a.ho.x, y: a.ho.y } : p0;
+        const p2 = b.hi ? { x: b.hi.x, y: b.hi.y } : { x: b.x, y: b.y };
+        const p3 = { x: b.x, y: b.y };
+
+        const ax = -p0.x + 3 * p1.x - 3 * p2.x + p3.x;
+        const ay = -p0.y + 3 * p1.y - 3 * p2.y + p3.y;
+        const bx = 3 * p0.x - 6 * p1.x + 3 * p2.x;
+        const by = 3 * p0.y - 6 * p1.y + 3 * p2.y;
+        const cx = -3 * p0.x + 3 * p1.x;
+        const cy = -3 * p0.y + 3 * p1.y;
+
+        const A = 3 * (ax * by - ay * bx);
+        const B = 3 * (ax * cy - ay * cx);
+        const C = bx * cy - by * cx;
+
+        const roots = [];
+        if (Math.abs(A) < 1e-6) {
+          if (Math.abs(B) > 1e-6) roots.push(-C / B);
+        } else {
+          const disc = B * B - 4 * A * C;
+          if (disc >= 0) {
+            const sq = Math.sqrt(disc);
+            roots.push((-B + sq) / (2 * A));
+            roots.push((-B - sq) / (2 * A));
+          }
+        }
+
+        roots.forEach(t => {
+          if (t > 0.04 && t < 0.96) {
+            const pt = evalBezier(p0, p1, p2, p3, t);
+            if (!pts.some(existing => Math.hypot(existing.x - pt.x, existing.y - pt.y) < 10)) {
+              pts.push(pt);
+            }
+          }
+        });
+      }
+      return pts;
+    }
+
+    function getTargetStrokeWidth(idx) {
+      const total = LEVELS.length;
+      if (idx >= total - 1) return 3;
+      const t = idx / (total - 1);
+      return Math.round((24 - t * 21) * 10) / 10;
+    }
+
+    // =========================================================================
+    // ÉVALUATION DE LA PRÉCISION (DISTANCE BIDIRECTIONNELLE DE CHAMFER)
+    // =========================================================================
+    function computeAccuracy() {
+      const lvl = LEVELS[levelIdx];
+      if (userPath.nodes.length < 2) return 0;
+
+      const targetPts = samplePathPoints(lvl, 36);
+      const userPts = samplePathPoints(userPath, 36);
+      if (!targetPts.length || !userPts.length) return 0;
+
+      const strokeW = getTargetStrokeWidth(levelIdx);
+      const fullCreditRadius = Math.max(2.5, strokeW * 0.5);
+      const maxTolerance = Math.max(24, strokeW * 2.2 + 18);
+
+      let sumTargetToUser = 0;
+      for (const tp of targetPts) {
+        let minD = Infinity;
+        for (const up of userPts) {
+          const d = Math.hypot(tp.x - up.x, tp.y - up.y);
+          if (d < minD) minD = d;
+        }
+        const effectiveD = Math.max(0, minD - fullCreditRadius);
+        sumTargetToUser += Math.max(0, 1 - effectiveD / maxTolerance);
+      }
+
+      let sumUserToTarget = 0;
+      for (const up of userPts) {
+        let minD = Infinity;
+        for (const tp of targetPts) {
+          const d = Math.hypot(tp.x - up.x, tp.y - up.y);
+          if (d < minD) minD = d;
+        }
+        const effectiveD = Math.max(0, minD - fullCreditRadius);
+        sumUserToTarget += Math.max(0, 1 - effectiveD / maxTolerance);
+      }
+
+      const acc1 = sumTargetToUser / targetPts.length;
+      const acc2 = sumUserToTarget / userPts.length;
+      const closurePenalty = (lvl.closed && !userPath.closed) ? 0.72 : 1.0;
+
+      return Math.round(Math.min(100, Math.max(0, ((acc1 + acc2) / 2) * 100 * closurePenalty)) * 10) / 10;
+    }
+
+    // =========================================================================
+    // GESTION DES NIVEAUX ET DU CHRONOMÈTRE
+    // =========================================================================
+    function initLevelSelector() {
+      const sel = $('#lvl-select');
+      sel.innerHTML = LEVELS.map((l, i) => `<option value="${i}">${l.title}</option>`).join('');
+      sel.addEventListener('change', e => loadLevel(parseInt(e.target.value, 10)));
+    }
+
+    function loadLevel(idx) {
+      levelIdx = idx;
+      levelCompleted = false;
+      const lvl = LEVELS[levelIdx];
+      $('#lvl-select').value = idx;
+      $('#lvl-subtitle').textContent = `Niveau ${idx + 1} / ${LEVELS.length}`;
+      $('#lvl-title').textContent = lvl.title;
+      $('#lvl-desc').textContent = lvl.desc;
+      $('#node-target').textContent = lvl.idealNodes;
+
+      resetUserPath(false);
+      resetZoom();
+      startTimer(lvl.timeLimit);
+      render();
+    }
+
+    function startTimer(seconds) {
+      clearInterval(timerInterval);
+      timeLeft = seconds;
+      updateTimerDisplay();
+      timerInterval = setInterval(() => {
+        if (levelCompleted) return;
+        timeLeft--;
+        updateTimerDisplay();
+        if (timeLeft <= 5 && timeLeft > 0) playTone("A4", "32n");
+        if (timeLeft <= 0) {
+          clearInterval(timerInterval);
+          timeLeft = 0;
+          updateTimerDisplay();
+          handleTimeOut();
+        }
+      }, 1000);
+    }
+
+    function updateTimerDisplay() {
+      const m = String(Math.floor(timeLeft / 60)).padStart(2, '0');
+      const s = String(timeLeft % 60).padStart(2, '0');
+      const el = $('#timer-val');
+      el.textContent = `${m}:${s}`;
+      const badge = $('#timer-badge');
+      if (timeLeft <= 10) {
+        badge.classList.add('border-rose-500/70', 'bg-rose-950/40');
+        el.classList.add('text-rose-400');
+      } else {
+        badge.classList.remove('border-rose-500/70', 'bg-rose-950/40');
+        el.classList.remove('text-rose-400');
+      }
+    }
+
+    function handleTimeOut() {
+      playErrorTone();
+      evaluateLevel(true);
+    }
+
+    function resetUserPath(playSound = true) {
+      userPath = { nodes: [], closed: false };
+      isDrawing = true;
+      selectedNodeIdx = -1;
+      undoStack = [];
+      matchedTargetIndices = new Set();
+      drag = null;
+      setTool('pen', false);
+      if (playSound) playTone("C4", "32n");
+      render();
+    }
+
+    // =========================================================================
+    // RETOUR POSITIF SUR LES POINTS D'ANCRAGE STRATÉGIQUES
+    // =========================================================================
+    function showAnchorPraise(svgX, svgY, label, isStart = false) {
+      const ctm = svg.getScreenCTM();
+      if (!ctm) return;
+      const pt = svg.createSVGPoint();
+      pt.x = svgX * zoomLevel + panX;
+      pt.y = svgY * zoomLevel + panY;
+      const scr = pt.matrixTransform(ctm);
+
+      const badge = document.createElement('div');
+      badge.className = `praise-toast${isStart ? ' start' : ''}`;
+      badge.textContent = label;
+      badge.style.left = `${scr.x}px`;
+      badge.style.top = `${Math.max(68, scr.y - 14)}px`;
+      document.body.appendChild(badge);
+      setTimeout(() => badge.remove(), 1500);
+    }
+
+    function evaluateStrategicNodePlacement(node, isFirstNode) {
+      const lvl = LEVELS[levelIdx];
+      if (!lvl || !lvl.nodes || !lvl.nodes.length) return;
+
+      const hitRadius = Math.max(16, getTargetStrokeWidth(levelIdx) * 0.95 + 8);
+      let bestIdx = -1;
+      let bestDist = hitRadius;
+
+      lvl.nodes.forEach((tn, idx) => {
+        const d = Math.hypot(tn.x - node.x, tn.y - node.y);
+        if (d <= bestDist) {
+          bestDist = d;
+          bestIdx = idx;
+        }
+      });
+
+      if (bestIdx === -1) return;
+
+      if (isFirstNode) {
+        matchedTargetIndices.clear();
+        matchedTargetIndices.add(bestIdx);
+        showAnchorPraise(node.x, node.y, 'Bon départ !', true);
+      } else if (!matchedTargetIndices.has(bestIdx)) {
+        matchedTargetIndices.add(bestIdx);
+        const praises = ['Parfait !', 'Génial !', 'Super !'];
+        const chosen = praises[(matchedTargetIndices.size - 2) % praises.length];
+        showAnchorPraise(node.x, node.y, chosen, false);
+      }
+    }
+
+    function saveUndo() {
+      undoStack.push(JSON.stringify(userPath));
+      if (undoStack.length > 40) undoStack.shift();
+    }
+
+    function undo() {
+      if (!undoStack.length) return;
+      userPath = JSON.parse(undoStack.pop());
+      isDrawing = !userPath.closed && userPath.nodes.length > 0;
+      if (userPath.nodes.length === 0) isDrawing = true;
+      selectedNodeIdx = userPath.nodes.length - 1;
+      playTone("D4", "32n");
+      render();
+    }
+
+    function setTool(newTool, play = true) {
+      tool = newTool;
+      const toolIds = ['direct', 'pen', 'penp', 'penm', 'conv'];
+      toolIds.forEach(t => {
+        const el = $(`#tool-${t}`);
+        if (el) el.classList.toggle('active', tool === t);
+      });
+
+      const statusHints = {
+        pen: '<strong>Plume (P) :</strong> Clic = point d’angle · Clic-glissé = courbe · <kbd class="px-1 py-0.5 bg-zinc-800 rounded text-[10px]">Alt</kbd> = briser la poignée · <kbd class="px-1 py-0.5 bg-zinc-800 rounded text-[10px]">Maj</kbd> = 45°',
+        penp: '<strong>Ajouter un point (+) :</strong> Cliquez n’importe où sur votre tracé pour insérer un point d’ancrage sans déformer la courbe.',
+        penm: '<strong>Supprimer un point (−) :</strong> Cliquez sur un point d’ancrage pour le retirer · <kbd class="px-1 py-0.5 bg-zinc-800 rounded text-[10px]">Maj</kbd> = conserver la courbure.',
+        conv: '<strong>Convertir le point (C) :</strong> Cliquez-glissez depuis un point pour sortir des poignées · Clic sur un point lisse = convertir en angle.',
+        direct: '<strong>Retouche (A) :</strong> Glissez les points ou poignées · <kbd class="px-1 py-0.5 bg-zinc-800 rounded text-[10px]">Alt</kbd> = poignée indépendante · Double-clic = lisse ⇄ angle.'
+      };
+      $('#status-bar').innerHTML = statusHints[tool] || statusHints.pen;
+
+      if (tool !== 'pen' && isDrawing && userPath.nodes.length >= 2) {
+        isDrawing = false;
+      }
+      if (tool === 'pen' && !userPath.closed && userPath.nodes.length === 0) {
+        isDrawing = true;
+      }
+      if (play) playTone("G4", "32n");
+      render();
+    }
+
+    // =========================================================================
+    // RENDU SVG TEMPS RÉEL
+    // =========================================================================
+    function render() {
+      const lvl = LEVELS[levelIdx];
+      const targetD = buildPathD(lvl);
+      const targetW = getTargetStrokeWidth(levelIdx);
+      const col = lvl.color || { stroke: "rgba(244, 146, 0, 0.30)", dash: "rgba(244, 146, 0, 0.75)", fill: "rgba(244, 146, 0, 0.07)", hex: "#f49200" };
+      const invZ = 1 / zoomLevel;
+
+      const fillTarget = lvl.closed ? col.fill : 'none';
+      const innerDash = targetW <= 6
+        ? `<path d="${targetD}" fill="none" stroke="${col.dash}" stroke-width="${R(Math.max(1, 1.1 * invZ))}" stroke-dasharray="${R(4 * invZ)} ${R(4 * invZ)}" stroke-linecap="round" stroke-linejoin="round"/>`
+        : `<path d="${targetD}" fill="none" stroke="${col.dash}" stroke-width="${R(1.5 * invZ)}" stroke-dasharray="${R(6 * invZ)} ${R(6 * invZ)}" stroke-linecap="round" stroke-linejoin="round"/>`;
+      LTarget.innerHTML = `
+        <path d="${targetD}" fill="${fillTarget}" stroke="${col.stroke}" stroke-width="${targetW}" stroke-linecap="round" stroke-linejoin="round"/>
+        ${innerDash}
+      `;
+
+      let guidesHtml = '';
+      if (showTargetNodes) {
+        lvl.nodes.forEach((n, idx) => {
+          if (n.hi) {
+            guidesHtml += `<line x1="${n.x}" y1="${n.y}" x2="${n.hi.x}" y2="${n.hi.y}" stroke="${col.hex}" stroke-opacity="0.45" stroke-width="${R(1.2 * invZ)}" stroke-dasharray="${R(3 * invZ)}"/>`;
+            guidesHtml += `<circle cx="${n.hi.x}" cy="${n.hi.y}" r="${R(3 * invZ)}" fill="${col.hex}" fill-opacity="0.7"/>`;
+          }
+          if (n.ho) {
+            guidesHtml += `<line x1="${n.x}" y1="${n.y}" x2="${n.ho.x}" y2="${n.ho.y}" stroke="${col.hex}" stroke-opacity="0.45" stroke-width="${R(1.2 * invZ)}" stroke-dasharray="${R(3 * invZ)}"/>`;
+            guidesHtml += `<circle cx="${n.ho.x}" cy="${n.ho.y}" r="${R(3 * invZ)}" fill="${col.hex}" fill-opacity="0.7"/>`;
+          }
+          const isStart = idx === 0;
+          const rOuter = (isStart ? 6.5 : 5) * invZ;
+          guidesHtml += `<circle cx="${n.x}" cy="${n.y}" r="${R(rOuter)}" fill="${isStart ? '#10b981' : col.hex}" fill-opacity="0.28" stroke="${isStart ? '#10b981' : col.hex}" stroke-width="${R(1.5 * invZ)}"/>`;
+          guidesHtml += `<text x="${n.x + 8 * invZ}" y="${n.y - 8 * invZ}" fill="${isStart ? '#34d399' : col.hex}" font-size="${R(11 * invZ)}" font-family="JetBrains Mono" font-weight="700">${idx + 1}</text>`;
+        });
+
+        const inflections = findInflectionPoints(lvl);
+        inflections.forEach(pt => {
+          const s = 4.5 * invZ;
+          guidesHtml += `
+            <polygon points="${R(pt.x)},${R(pt.y - s)} ${R(pt.x + s)},${R(pt.y)} ${R(pt.x)},${R(pt.y + s)} ${R(pt.x - s)},${R(pt.y)}"
+              fill="#06b6d4" fill-opacity="0.32" stroke="#22d3ee" stroke-width="${R(1.5 * invZ)}"/>
+            <text x="${R(pt.x + 7 * invZ)}" y="${R(pt.y + 4 * invZ)}" fill="#22d3ee" font-size="${R(10 * invZ)}" font-family="JetBrains Mono" font-weight="700">Inflexion</text>
+          `;
+        });
+      }
+      LGuides.innerHTML = guidesHtml;
+
+      let userHtml = '';
+      const nodes = userPath.nodes;
+      if (nodes.length > 0) {
+        const userD = buildPathD(userPath);
+        userHtml += `<path d="${userD}" fill="${userPath.closed ? 'rgba(47, 107, 255, 0.14)' : 'none'}" stroke="#2f6bff" stroke-width="${R(2.6 * invZ)}" stroke-linecap="round" stroke-linejoin="round"/>`;
+      }
+
+      if (tool === 'pen' && isDrawing && !userPath.closed && nodes.length > 0 && !drag) {
+        const last = nodes[nodes.length - 1];
+        const first = nodes[0];
+        const canClose = nodes.length >= 2 && Math.hypot(first.x - mouse.x, first.y - mouse.y) < 13 * invZ;
+        const previewTarget = canClose ? { x: first.x, y: first.y, hi: first.hi } : { x: mouse.x, y: mouse.y };
+        const previewD = buildPathD({ nodes: [last, previewTarget], closed: false });
+        userHtml += `<path d="${previewD}" fill="none" stroke="#60a5fa" stroke-width="${R(1.6 * invZ)}" stroke-dasharray="${R(5 * invZ)} ${R(4 * invZ)}"/>`;
+      }
+      LUser.innerHTML = userHtml;
+
+      let uiHtml = '';
+      if (tool === 'penp' && !drag && nodes.length >= 2) {
+        const edgeHit = findClosestEdge(mouse, 11 * invZ);
+        if (edgeHit) {
+          uiHtml += `<circle cx="${edgeHit.pt.x}" cy="${edgeHit.pt.y}" r="${R(5 * invZ)}" fill="#ffffff" stroke="#f49200" stroke-width="${R(2 * invZ)}" pointer-events="none"/>`;
+        }
+      }
+
+      nodes.forEach((n, i) => {
+        const isSelected = i === selectedNodeIdx || (isDrawing && i === nodes.length - 1);
+        const showHandles = isSelected || tool === 'direct' || tool === 'conv';
+
+        if (showHandles) {
+          if (n.hi) {
+            uiHtml += `
+              <line x1="${n.x}" y1="${n.y}" x2="${n.hi.x}" y2="${n.hi.y}" stroke="#60a5fa" stroke-width="${R(1.2 * invZ)}"/>
+              <circle cx="${n.hi.x}" cy="${n.hi.y}" r="${R(4.2 * invZ)}" fill="#16161a" stroke="#60a5fa" stroke-width="${R(1.8 * invZ)}" style="cursor:pointer"/>
+            `;
+          }
+          if (n.ho) {
+            uiHtml += `
+              <line x1="${n.x}" y1="${n.y}" x2="${n.ho.x}" y2="${n.ho.y}" stroke="#60a5fa" stroke-width="${R(1.2 * invZ)}"/>
+              <circle cx="${n.ho.x}" cy="${n.ho.y}" r="${R(4.2 * invZ)}" fill="#16161a" stroke="#60a5fa" stroke-width="${R(1.8 * invZ)}" style="cursor:pointer"/>
+            `;
+          }
+        }
+
+        if (tool === 'pen' && isDrawing && !userPath.closed && i === 0 && nodes.length >= 2) {
+          const nearFirst = Math.hypot(n.x - mouse.x, n.y - mouse.y) < 13 * invZ;
+          if (nearFirst) {
+            uiHtml += `<circle class="close-ring" cx="${n.x}" cy="${n.y}" r="${R(11 * invZ)}" fill="rgba(16, 185, 129, 0.25)" stroke="#10b981" stroke-width="${R(2 * invZ)}"/>`;
+          }
+        }
+
+        const sz = (isSelected ? 4.5 : 3.8) * invZ;
+        const strokeColor = tool === 'penm' ? '#ef4444' : '#2f6bff';
+        const fillColor = isSelected ? (tool === 'penm' ? '#ef4444' : '#2f6bff') : '#ffffff';
+        uiHtml += `<rect x="${n.x - sz}" y="${n.y - sz}" width="${sz * 2}" height="${sz * 2}" rx="${R(1 * invZ)}" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${R(1.6 * invZ)}" style="cursor:move"/>`;
+      });
+      LUi.innerHTML = uiHtml;
+
+      updateHudStatus();
+    }
+
+    function updateHudStatus() {
+      const lvl = LEVELS[levelIdx];
+      const count = userPath.nodes.length;
+      const ideal = lvl.idealNodes;
+      const diff = Math.abs(count - ideal);
+
+      const countEl = $('#node-count');
+      countEl.textContent = count;
+      if (count === 0) {
+        countEl.className = 'mono font-bold text-sm text-white';
+      } else if (diff <= 2) {
+        countEl.className = 'mono font-bold text-sm text-emerald-400';
+      } else {
+        countEl.className = 'mono font-bold text-sm text-rose-400';
+      }
+
+      const acc = computeAccuracy();
+      const accPill = $('#live-acc-pill');
+      if (count >= 2) {
+        accPill.textContent = `Précision : ${acc} %`;
+        accPill.className = acc >= 82
+          ? 'mono text-[11px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-semibold'
+          : 'mono text-[11px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-semibold';
+      } else {
+        accPill.textContent = 'Précision : —';
+        accPill.className = 'mono text-[11px] px-2 py-0.5 rounded bg-zinc-800 text-zinc-400';
+      }
+
+      const btnVal = $('#btn-validate');
+      const ready = count >= 2;
+      btnVal.disabled = !ready;
+      if (ready) {
+        btnVal.className = 'w-full py-2 px-3 rounded-lg font-bold text-xs uppercase tracking-wider transition-all bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/25 cursor-pointer';
+      } else {
+        btnVal.className = 'w-full py-2 px-3 rounded-lg font-bold text-xs uppercase tracking-wider transition-all bg-zinc-700 text-zinc-400 cursor-not-allowed';
+      }
+    }
+
+    // =========================================================================
+    // INTERACTIONS SOURIS / TACTILE SUR LE CANEVAS SVG
+    // =========================================================================
+    function hitTestNodes(p) {
+      const tol = 10 / zoomLevel;
+      const nodes = userPath.nodes;
+      for (let i = nodes.length - 1; i >= 0; i--) {
+        const n = nodes[i];
+        const isVisibleHandle = (i === selectedNodeIdx || tool === 'direct' || tool === 'conv');
+        if (isVisibleHandle) {
+          if (n.hi && Math.hypot(n.hi.x - p.x, n.hi.y - p.y) <= tol) return { idx: i, part: 'hi' };
+          if (n.ho && Math.hypot(n.ho.x - p.x, n.ho.y - p.y) <= tol) return { idx: i, part: 'ho' };
+        }
+        if (Math.hypot(n.x - p.x, n.y - p.y) <= tol) return { idx: i, part: 'anchor' };
+      }
+      return null;
+    }
+
+    svg.addEventListener('pointerdown', e => {
+      if (levelCompleted) return;
+      svg.setPointerCapture(e.pointerId);
+
+      if (spacePressed || e.button === 1) {
+        panDrag = {
+          startClientX: e.clientX,
+          startClientY: e.clientY,
+          startPanX: panX,
+          startPanY: panY
+        };
+        svg.style.cursor = 'grabbing';
+        return;
+      }
+
+      const rawP = clientToSvg(e);
+      mouse = rawP;
+      const nodes = userPath.nodes;
+
+      if (tool === 'penp') {
+        const hit = findClosestEdge(rawP, 11 / zoomLevel);
+        if (hit) {
+          saveUndo();
+          splitUserSegmentAt(hit.segIdx, hit.t);
+          playTone("E5", "32n");
+          render();
+        }
+        return;
+      }
+
+      if (tool === 'penm') {
+        const hit = hitTestNodes(rawP);
+        if (hit && hit.part === 'anchor') {
+          saveUndo();
+          deleteUserNode(hit.idx, e.shiftKey);
+          playTone("C4", "32n");
+          render();
+        }
+        return;
+      }
+
+      if (tool === 'conv') {
+        const hit = hitTestNodes(rawP);
+        if (hit && hit.part === 'anchor') {
+          saveUndo();
+          const n = nodes[hit.idx];
+          selectedNodeIdx = hit.idx;
+          if (n.hi || n.ho) {
+            delete n.hi;
+            delete n.ho;
+            playTone("D4", "32n");
+            render();
+            return;
+          }
+          drag = { type: 'conv-drag', node: n, start: rawP };
+          playTone("G4", "32n");
+          render();
+        }
+        return;
+      }
+
+      if (tool === 'direct') {
+        const hit = hitTestNodes(rawP);
+        if (hit) {
+          saveUndo();
+          selectedNodeIdx = hit.idx;
+          const n = nodes[hit.idx];
+          let symmetric = false;
+          if (n.hi && n.ho) {
+            const ax = n.hi.x - n.x, ay = n.hi.y - n.y;
+            const bx = n.ho.x - n.x, by = n.ho.y - n.y;
+            const la = Math.hypot(ax, ay), lb = Math.hypot(bx, by);
+            symmetric = la > 0 && lb > 0 && Math.abs(ax * by - ay * bx) / (la * lb) < 0.04 && (ax * bx + ay * by) < 0;
+          }
+          drag = {
+            type: 'direct-edit',
+            idx: hit.idx,
+            part: hit.part,
+            last: rawP,
+            symmetric
+          };
+          playTone("E4", "32n");
+          render();
+        }
+        return;
+      }
+
+      if (tool === 'pen') {
+        if (!isDrawing && !userPath.closed && nodes.length > 0) {
+          const first = nodes[0];
+          const last = nodes[nodes.length - 1];
+          if (Math.hypot(last.x - rawP.x, last.y - rawP.y) < 13 / zoomLevel) {
+            isDrawing = true;
+            selectedNodeIdx = nodes.length - 1;
+            render();
+            return;
+          }
+          if (Math.hypot(first.x - rawP.x, first.y - rawP.y) < 13 / zoomLevel) {
+            nodes.reverse();
+            nodes.forEach(nd => {
+              const tmp = nd.hi;
+              nd.hi = nd.ho;
+              nd.ho = tmp;
+            });
+            isDrawing = true;
+            selectedNodeIdx = nodes.length - 1;
+            render();
+            return;
+          }
+        }
+
+        if (userPath.closed || !isDrawing) {
+          const hit = hitTestNodes(rawP);
+          if (hit) {
+            saveUndo();
+            selectedNodeIdx = hit.idx;
+            drag = { type: 'direct-edit', idx: hit.idx, part: hit.part, last: rawP, symmetric: false };
+            render();
+          }
+          return;
+        }
+
+        const last = nodes[nodes.length - 1];
+
+        if (e.altKey && last && (Math.hypot(last.x - rawP.x, last.y - rawP.y) < 13 / zoomLevel || (last.ho && Math.hypot(last.ho.x - rawP.x, last.ho.y - rawP.y) < 13 / zoomLevel))) {
+          saveUndo();
+          drag = { type: 'pen-alt-break', node: last, moved: false };
+          return;
+        }
+
+        if (nodes.length >= 2 && Math.hypot(nodes[0].x - rawP.x, nodes[0].y - rawP.y) < 13 / zoomLevel) {
+          saveUndo();
+          userPath.closed = true;
+          isDrawing = false;
+          selectedNodeIdx = 0;
+          drag = { type: 'pen-close-drag', node: nodes[0] };
+          playTone("G5", "16n");
+          render();
+          return;
+        }
+
+        const p = snapAngle(last, rawP, e.shiftKey);
+        saveUndo();
+        const isFirstNode = nodes.length === 0;
+        const newNode = { x: p.x, y: p.y };
+        nodes.push(newNode);
+        selectedNodeIdx = nodes.length - 1;
+        drag = { type: 'pen-drag', node: newNode, broken: e.altKey };
+        playTone(isFirstNode ? "C5" : "E5", "32n");
+        evaluateStrategicNodePlacement(newNode, isFirstNode);
+        render();
+        return;
+      }
+    });
+
+    svg.addEventListener('pointermove', e => {
+      if (panDrag) {
+        const ctm = svg.getScreenCTM();
+        const scaleX = ctm ? ctm.a : 1;
+        const scaleY = ctm ? ctm.d : 1;
+        panX = panDrag.startPanX + (e.clientX - panDrag.startClientX) / scaleX;
+        panY = panDrag.startPanY + (e.clientY - panDrag.startClientY) / scaleY;
+        updateViewportTransform();
+        return;
+      }
+
+      const rawP = clientToSvg(e);
+      if (tool === 'pen' && isDrawing && !drag && userPath.nodes.length > 0) {
+        mouse = snapAngle(userPath.nodes[userPath.nodes.length - 1], rawP, e.shiftKey);
+      } else {
+        mouse = rawP;
+      }
+
+      if (!drag) {
+        if ((tool === 'pen' && isDrawing && userPath.nodes.length > 0) || tool === 'penp') {
+          render();
+        }
+        return;
+      }
+
+      if (drag.type === 'pen-drag') {
+        const n = drag.node;
+        const hp = snapAngle(n, rawP, e.shiftKey);
+        if (Math.hypot(hp.x - n.x, hp.y - n.y) > 3 / zoomLevel) {
+          n.ho = { x: hp.x, y: hp.y };
+          if (!e.altKey && !drag.broken) {
+            n.hi = { x: 2 * n.x - hp.x, y: 2 * n.y - hp.y };
+          }
+        }
+      } else if (drag.type === 'pen-close-drag') {
+        const n = drag.node;
+        const hp = snapAngle(n, rawP, e.shiftKey);
+        if (Math.hypot(hp.x - n.x, hp.y - n.y) > 3 / zoomLevel) {
+          if (e.altKey) {
+            n.hi = { x: 2 * n.x - hp.x, y: 2 * n.y - hp.y };
+          } else {
+            n.ho = { x: hp.x, y: hp.y };
+            n.hi = { x: 2 * n.x - hp.x, y: 2 * n.y - hp.y };
+          }
+        }
+      } else if (drag.type === 'pen-alt-break') {
+        const n = drag.node;
+        const hp = snapAngle(n, rawP, e.shiftKey);
+        if (drag.moved || Math.hypot(hp.x - n.x, hp.y - n.y) > 3 / zoomLevel) {
+          drag.moved = true;
+          n.ho = { x: hp.x, y: hp.y };
+        }
+      } else if (drag.type === 'conv-drag') {
+        const n = drag.node;
+        const hp = snapAngle(n, rawP, e.shiftKey);
+        if (Math.hypot(hp.x - drag.start.x, hp.y - drag.start.y) > 3 / zoomLevel) {
+          n.ho = { x: hp.x, y: hp.y };
+          n.hi = { x: 2 * n.x - hp.x, y: 2 * n.y - hp.y };
+        }
+      } else if (drag.type === 'direct-edit') {
+        const n = userPath.nodes[drag.idx];
+        if (!n) return;
+        if (drag.part === 'anchor') {
+          const dx = rawP.x - drag.last.x;
+          const dy = rawP.y - drag.last.y;
+          drag.last = rawP;
+          n.x += dx;
+          n.y += dy;
+          if (n.hi) { n.hi.x += dx; n.hi.y += dy; }
+          if (n.ho) { n.ho.x += dx; n.ho.y += dy; }
+        } else {
+          const hp = snapAngle(n, rawP, e.shiftKey);
+          n[drag.part] = { x: hp.x, y: hp.y };
+          const opp = drag.part === 'hi' ? 'ho' : 'hi';
+          if (!e.altKey && drag.symmetric && n[opp]) {
+            const lenOpp = Math.hypot(n[opp].x - n.x, n[opp].y - n.y);
+            const dist = Math.hypot(hp.x - n.x, hp.y - n.y) || 1;
+            n[opp] = {
+              x: n.x - ((hp.x - n.x) / dist) * lenOpp,
+              y: n.y - ((hp.y - n.y) / dist) * lenOpp
+            };
+          }
+        }
+      }
+
+      render();
+    });
+
+    svg.addEventListener('pointerup', () => {
+      if (panDrag) {
+        panDrag = null;
+        svg.style.cursor = spacePressed ? 'grab' : 'default';
+        return;
+      }
+      if (drag && drag.type === 'pen-alt-break' && !drag.moved && drag.node.ho) {
+        delete drag.node.ho;
+      }
+      drag = null;
+      render();
+    });
+
+    svg.addEventListener('dblclick', e => {
+      if (levelCompleted) return;
+      const p = clientToSvg(e);
+      if (tool === 'pen' && isDrawing && userPath.nodes.length >= 2) {
+        isDrawing = false;
+        playTone("C5", "16n");
+        render();
+        return;
+      }
+      if (tool === 'direct') {
+        const hit = hitTestNodes(p);
+        if (hit && hit.part === 'anchor') {
+          saveUndo();
+          const nodes = userPath.nodes;
+          const n = nodes[hit.idx];
+          if (n.hi || n.ho) {
+            delete n.hi;
+            delete n.ho;
+          } else {
+            const prev = nodes[(hit.idx - 1 + nodes.length) % nodes.length];
+            const next = nodes[(hit.idx + 1) % nodes.length];
+            const dx = next.x - prev.x, dy = next.y - prev.y;
+            const d = Math.hypot(dx, dy) || 1;
+            const len = Math.min(45, d / 3);
+            n.ho = { x: n.x + (dx / d) * len, y: n.y + (dy / d) * len };
+            n.hi = { x: n.x - (dx / d) * len, y: n.y - (dy / d) * len };
+          }
+          playTone("A4", "32n");
+          render();
+        }
+      }
+    });
+
+    // =========================================================================
+    // EFFETS VISUELS : EXPLOSIONS DE BULLES, LUMIÈRE & CONFETTIS
+    // =========================================================================
+    const fxCanvas = $('#fx-canvas');
+    const fxCtx = fxCanvas.getContext('2d');
+    let fxParticles = [];
+    let fxAnimId = null;
+
+    function resizeFxCanvas() {
+      fxCanvas.width = window.innerWidth;
+      fxCanvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeFxCanvas);
+    resizeFxCanvas();
+
+    function spawnValidationCelebration(tier) {
+      resizeFxCanvas();
+      fxParticles = [];
+      const cx = window.innerWidth * 0.5;
+      const cy = window.innerHeight * 0.45;
+      const palette = ['#2f6bff', '#10b981', '#f49200', '#ec4899', '#06b6d4', '#eab308', '#a855f7'];
+      const mult = tier === 'perfect' ? 1.35 : 0.85;
+
+      for (let i = 0; i < Math.round(3 * mult); i++) {
+        fxParticles.push({
+          kind: 'shockwave',
+          x: cx + (Math.random() - 0.5) * 160,
+          y: cy + (Math.random() - 0.5) * 100,
+          r: 8,
+          maxR: (160 + Math.random() * 140) * mult,
+          color: palette[i % palette.length],
+          alpha: 0.95,
+          delay: i * 9
+        });
+      }
+
+      const burstCenters = [
+        { x: cx, y: cy },
+        { x: cx - 170, y: cy - 40 },
+        { x: cx + 170, y: cy - 40 }
+      ];
+      burstCenters.forEach((origin, bIdx) => {
+        const bubbleCount = Math.round(28 * mult);
+        for (let i = 0; i < bubbleCount; i++) {
+          const ang = (Math.PI * 2 * i) / bubbleCount + (Math.random() - 0.5) * 0.3;
+          const spd = (2.5 + Math.random() * 7.5) * mult;
+          fxParticles.push({
+            kind: 'bubble',
+            x: origin.x,
+            y: origin.y,
+            vx: Math.cos(ang) * spd,
+            vy: Math.sin(ang) * spd - 1.5,
+            r: 4 + Math.random() * 10,
+            color: palette[(i + bIdx) % palette.length],
+            alpha: 1,
+            decay: 0.011 + Math.random() * 0.008,
+            delay: bIdx * 6
+          });
+        }
+      });
+
+      const sparkCount = Math.round(65 * mult);
+      for (let i = 0; i < sparkCount; i++) {
+        const ang = Math.random() * Math.PI * 2;
+        const spd = (4 + Math.random() * 12) * mult;
+        fxParticles.push({
+          kind: 'spark',
+          x: cx + (Math.random() - 0.5) * 120,
+          y: cy + (Math.random() - 0.5) * 80,
+          vx: Math.cos(ang) * spd,
+          vy: Math.sin(ang) * spd,
+          size: 2 + Math.random() * 3.5,
+          color: i % 2 === 0 ? '#ffffff' : '#fde047',
+          alpha: 1,
+          decay: 0.016 + Math.random() * 0.012,
+          delay: Math.floor(Math.random() * 10)
+        });
+      }
+
+      const confettiCount = Math.round(95 * mult);
+      for (let i = 0; i < confettiCount; i++) {
+        const ang = -Math.PI / 2 + (Math.random() - 0.5) * 2.2;
+        const spd = (5 + Math.random() * 11) * mult;
+        fxParticles.push({
+          kind: 'confetti',
+          x: cx + (Math.random() - 0.5) * 240,
+          y: cy + 20,
+          vx: Math.cos(ang) * spd + (Math.random() - 0.5) * 3,
+          vy: Math.sin(ang) * spd - 2,
+          w: 6 + Math.random() * 6,
+          h: 4 + Math.random() * 4,
+          rot: Math.random() * Math.PI * 2,
+          vRot: (Math.random() - 0.5) * 0.25,
+          color: palette[i % palette.length],
+          alpha: 1,
+          decay: 0.007 + Math.random() * 0.005,
+          delay: Math.floor(Math.random() * 12)
+        });
+      }
+
+      if (!fxAnimId) runFxLoop();
+    }
+
+    function runFxLoop() {
+      fxCtx.clearRect(0, 0, fxCanvas.width, fxCanvas.height);
+
+      for (let i = fxParticles.length - 1; i >= 0; i--) {
+        const p = fxParticles[i];
+        if (p.delay > 0) {
+          p.delay--;
+          continue;
+        }
+
+        if (p.kind === 'shockwave') {
+          p.r += (p.maxR - p.r) * 0.12;
+          p.alpha *= 0.91;
+          fxCtx.save();
+          fxCtx.globalAlpha = Math.max(0, p.alpha);
+          fxCtx.strokeStyle = p.color;
+          fxCtx.lineWidth = 3.5;
+          fxCtx.shadowColor = p.color;
+          fxCtx.shadowBlur = 18;
+          fxCtx.beginPath();
+          fxCtx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+          fxCtx.stroke();
+          fxCtx.restore();
+          if (p.alpha < 0.03) fxParticles.splice(i, 1);
+
+        } else if (p.kind === 'bubble') {
+          p.x += p.vx;
+          p.y += p.vy;
+          p.vx *= 0.96;
+          p.vy = p.vy * 0.96 - 0.06;
+          p.alpha -= p.decay;
+          if (p.alpha <= 0) { fxParticles.splice(i, 1); continue; }
+
+          fxCtx.save();
+          fxCtx.globalAlpha = p.alpha;
+          fxCtx.strokeStyle = p.color;
+          fxCtx.fillStyle = p.color + '33';
+          fxCtx.lineWidth = 2;
+          fxCtx.shadowColor = p.color;
+          fxCtx.shadowBlur = 10;
+          fxCtx.beginPath();
+          fxCtx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+          fxCtx.fill();
+          fxCtx.stroke();
+          fxCtx.fillStyle = 'rgba(255,255,255,0.75)';
+          fxCtx.beginPath();
+          fxCtx.arc(p.x - p.r * 0.32, p.y - p.r * 0.32, p.r * 0.24, 0, Math.PI * 2);
+          fxCtx.fill();
+          fxCtx.restore();
+
+        } else if (p.kind === 'spark') {
+          p.x += p.vx;
+          p.y += p.vy;
+          p.vx *= 0.93;
+          p.vy *= 0.93;
+          p.alpha -= p.decay;
+          if (p.alpha <= 0) { fxParticles.splice(i, 1); continue; }
+
+          fxCtx.save();
+          fxCtx.globalAlpha = p.alpha;
+          fxCtx.fillStyle = p.color;
+          fxCtx.shadowColor = '#fde047';
+          fxCtx.shadowBlur = 14;
+          fxCtx.beginPath();
+          fxCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          fxCtx.fill();
+          fxCtx.restore();
+
+        } else if (p.kind === 'confetti') {
+          p.x += p.vx;
+          p.y += p.vy;
+          p.vx *= 0.985;
+          p.vy += 0.24;
+          p.rot += p.vRot;
+          p.alpha -= p.decay;
+          if (p.alpha <= 0) { fxParticles.splice(i, 1); continue; }
+
+          fxCtx.save();
+          fxCtx.globalAlpha = p.alpha;
+          fxCtx.translate(p.x, p.y);
+          fxCtx.rotate(p.rot);
+          fxCtx.fillStyle = p.color;
+          fxCtx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+          fxCtx.restore();
+        }
+      }
+
+      if (fxParticles.length > 0) {
+        fxAnimId = requestAnimationFrame(runFxLoop);
+      } else {
+        fxAnimId = null;
+        fxCtx.clearRect(0, 0, fxCanvas.width, fxCanvas.height);
+      }
+    }
+
+    // =========================================================================
+    // VALIDATION, CALCUL DU SCORE ET RÉSULTATS
+    // =========================================================================
+    function evaluateLevel(timedOut = false) {
+      if (levelCompleted) return;
+      levelCompleted = true;
+      clearInterval(timerInterval);
+
+      const lvl = LEVELS[levelIdx];
+      const count = userPath.nodes.length;
+      const ideal = lvl.idealNodes;
+      const nodeDiff = Math.abs(count - ideal);
+      const nodesValid = nodeDiff <= 2;
+      const acc = computeAccuracy();
+      const closureValid = !lvl.closed || userPath.closed;
+
+      const passed = !timedOut && acc >= 80 && nodesValid && closureValid;
+
+      let pointsEarned = 0;
+      let timeBonus = 0;
+      if (passed) {
+        const baseAccScore = Math.round(acc * 10);
+        const nodeBonus = nodeDiff === 0 ? 300 : (nodeDiff === 1 ? 150 : 50);
+        timeBonus = Math.round((timeLeft / lvl.timeLimit) * 400);
+        pointsEarned = baseAccScore + nodeBonus + timeBonus;
+        totalScore += pointsEarned;
+        $('#total-score').textContent = totalScore.toLocaleString('fr-FR');
+        playSuccessFanfare();
+        spawnValidationCelebration(acc >= 93 && nodeDiff === 0 ? 'perfect' : 'good');
+      } else {
+        playErrorTone();
+      }
+
+      const modal = $('#result-modal');
+      const badge = $('#res-badge');
+      const title = $('#res-title');
+      const stars = $('#res-stars');
+
+      if (passed) {
+        badge.textContent = 'Niveau Réussi !';
+        badge.className = 'text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400';
+        if (acc >= 93 && nodeDiff === 0) {
+          title.textContent = 'Maîtrise Vectorielle Absolue !';
+          stars.textContent = '⭐⭐⭐';
+        } else if (acc >= 86) {
+          title.textContent = 'Très beau tracé !';
+          stars.textContent = '⭐⭐☆';
+        } else {
+          title.textContent = 'Tracé validé !';
+          stars.textContent = '⭐☆☆';
+        }
+      } else {
+        badge.textContent = timedOut ? 'Temps écoulé !' : 'À perfectionner';
+        badge.className = 'text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-rose-500/20 text-rose-400';
+        title.textContent = timedOut ? 'Le chrono est arrivé à zéro' : 'Tracé non validé';
+        stars.textContent = '☆☆☆';
+      }
+
+      $('#res-acc').textContent = `${acc} %`;
+      const accBar = $('#res-acc-bar');
+      accBar.style.width = `${Math.min(100, acc)}%`;
+      accBar.className = `h-full transition-all duration-500 ${acc >= 80 ? 'bg-emerald-500' : 'bg-rose-500'}`;
+
+      const nodesEl = $('#res-nodes');
+      const nodeStatusText = nodeDiff === 0 ? 'Parfait !' : (nodesValid ? 'Tolérance ±2 OK' : 'Hors tolérance ±2');
+      nodesEl.textContent = `${count} / ${ideal} (${nodeStatusText})`;
+      nodesEl.className = `mono font-bold ${nodesValid ? 'text-emerald-400' : 'text-rose-400'}`;
+
+      $('#res-time').textContent = passed ? `+${timeBonus} pts (${timeLeft}s)` : '0 pt';
+      $('#res-points').textContent = passed ? `+${pointsEarned.toLocaleString('fr-FR')} pts` : '0 pt';
+
+      const advices = [];
+      if (timedOut) advices.push("Le temps imparti est écoulé. Essayez de poser vos points principaux plus rapidement puis ajustez avec l'outil Retouche (A).");
+      if (!closureValid) advices.push("La forme modèle est fermée : n'oubliez pas de cliquer sur votre premier point pour fermer le contour.");
+      if (!nodesValid) {
+        if (count > ideal + 2) advices.push(`Vous avez utilisé trop de points (${count} au lieu de ${ideal} ±2). Étirez davantage les poignées de Bézier pour couvrir de plus grandes courbes.`);
+        else advices.push(`Il manque des points d'ancrage (${count} au lieu de ${ideal} ±2) pour épouser fidèlement la silhouette.`);
+      }
+      if (acc < 80) advices.push("La précision minimale requise est de 80 %. Utilisez l'outil Retouche (A) pour aligner vos tangentes sur la ligne pointillée.");
+      if (passed && advices.length === 0) advices.push("Excellent équilibre entre économie de points d'ancrage, fluidité des tangentes et rapidité d'exécution !");
+      $('#res-feedback').textContent = advices.join(' ');
+
+      const nextBtn = $('#btn-next-modal');
+      if (levelIdx < LEVELS.length - 1) {
+        nextBtn.textContent = 'Niveau suivant →';
+        nextBtn.classList.remove('hidden');
+      } else {
+        nextBtn.textContent = 'Rejouer depuis le début ↺';
+      }
+
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    // =========================================================================
+    // ÉVÉNEMENTS DES BOUTONS & RACCOURCIS CLAVIER
+    // =========================================================================
+    $('#btn-start-game').addEventListener('click', () => {
+      $('#intro-modal').classList.add('hidden');
+      initAudio();
+      loadLevel(0);
+    });
+
+    $('#tool-pen').addEventListener('click', () => setTool('pen'));
+    $('#tool-penp').addEventListener('click', () => setTool('penp'));
+    $('#tool-penm').addEventListener('click', () => setTool('penm'));
+    $('#tool-conv').addEventListener('click', () => setTool('conv'));
+    $('#tool-direct').addEventListener('click', () => setTool('direct'));
+
+    $('#btn-zoom-in').addEventListener('click', () => {
+      setZoom(zoomLevel * 1.25);
+      playTone("G4", "32n");
+    });
+    $('#btn-zoom-out').addEventListener('click', () => {
+      setZoom(zoomLevel / 1.25);
+      playTone("E4", "32n");
+    });
+    $('#btn-zoom-reset').addEventListener('click', () => {
+      resetZoom();
+      playTone("C5", "32n");
+    });
+
+    svg.addEventListener('wheel', e => {
+      e.preventDefault();
+      const rawP = clientToSvg(e);
+      const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+      setZoom(zoomLevel * factor, rawP.x, rawP.y);
+    }, { passive: false });
+
+    const tooltipEl = $('#tool-tooltip');
+    let tooltipTimer = null;
+    document.querySelectorAll('#toolbar button[data-label]').forEach(btn => {
+      btn.addEventListener('mouseenter', () => {
+        clearTimeout(tooltipTimer);
+        tooltipTimer = setTimeout(() => {
+          const rect = btn.getBoundingClientRect();
+          tooltipEl.textContent = btn.dataset.label;
+          tooltipEl.style.left = `${rect.right + 10}px`;
+          tooltipEl.style.top = `${rect.top + rect.height / 2 - 13}px`;
+          tooltipEl.classList.add('visible');
+        }, 420);
+      });
+      btn.addEventListener('mouseleave', () => {
+        clearTimeout(tooltipTimer);
+        tooltipEl.classList.remove('visible');
+      });
+      btn.addEventListener('mousedown', () => {
+        clearTimeout(tooltipTimer);
+        tooltipEl.classList.remove('visible');
+      });
+    });
+
+    $('#btn-hint-nodes').addEventListener('click', () => {
+      showTargetNodes = !showTargetNodes;
+      $('#btn-hint-nodes').classList.toggle('active', showTargetNodes);
+      playTone("B4", "32n");
+      render();
+    });
+
+    $('#btn-undo').addEventListener('click', undo);
+    $('#btn-reset').addEventListener('click', () => resetUserPath(true));
+    $('#btn-validate').addEventListener('click', () => evaluateLevel(false));
+
+    $('#btn-sound').addEventListener('click', () => {
+      soundOn = !soundOn;
+      $('#btn-sound').textContent = soundOn ? '🔊' : '🔇';
+    });
+
+    $('#btn-retry-modal').addEventListener('click', () => {
+      $('#result-modal').classList.add('hidden');
+      $('#result-modal').classList.remove('flex');
+      loadLevel(levelIdx);
+    });
+
+    $('#btn-next-modal').addEventListener('click', () => {
+      $('#result-modal').classList.add('hidden');
+      $('#result-modal').classList.remove('flex');
+      const nextIdx = (levelIdx + 1) < LEVELS.length ? levelIdx + 1 : 0;
+      loadLevel(nextIdx);
+    });
+
+    window.addEventListener('keydown', e => {
+      if (!$('#intro-modal').classList.contains('hidden')) return;
+      if (!$('#result-modal').classList.contains('hidden')) {
+        if (e.key === 'Enter') $('#btn-next-modal').click();
+        return;
+      }
+
+      if (e.code === 'Space' && !spacePressed) {
+        e.preventDefault();
+        spacePressed = true;
+        if (!panDrag) svg.style.cursor = 'grab';
+        return;
+      }
+
+      const k = e.key.toLowerCase();
+      if ((e.ctrlKey || e.metaKey) && (k === '=' || k === '+')) {
+        e.preventDefault();
+        setZoom(zoomLevel * 1.25);
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && (k === '-' || k === '_')) {
+        e.preventDefault();
+        setZoom(zoomLevel / 1.25);
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && k === '0') {
+        e.preventDefault();
+        resetZoom();
+        return;
+      }
+
+      if ((e.ctrlKey || e.metaKey) && k === 'z') {
+        e.preventDefault();
+        undo();
+        return;
+      }
+      if (k === 'p') setTool('pen');
+      else if (k === '+' || k === '=') setTool('penp');
+      else if (k === '-' || k === '_') setTool('penm');
+      else if (k === 'c') setTool('conv');
+      else if (k === 'a') setTool('direct');
+      else if (k === 'enter') {
+        e.preventDefault();
+        if (tool === 'pen' && isDrawing && !LEVELS[levelIdx].closed && userPath.nodes.length >= 2) {
+          isDrawing = false;
+          render();
+          evaluateLevel(false);
+        } else if (userPath.nodes.length >= 2) {
+          evaluateLevel(false);
+        }
+      } else if (k === 'escape') {
+        if (isDrawing && userPath.nodes.length >= 2) {
+          isDrawing = false;
+          playTone("C4", "32n");
+          render();
+        }
+      } else if ((k === 'backspace' || k === 'delete') && selectedNodeIdx >= 0 && userPath.nodes.length > 0) {
+        e.preventDefault();
+        saveUndo();
+        userPath.nodes.splice(selectedNodeIdx, 1);
+        if (userPath.nodes.length < 3) userPath.closed = false;
+        selectedNodeIdx = userPath.nodes.length - 1;
+        playTone("C4", "32n");
+        render();
+      }
+    });
+
+    window.addEventListener('keyup', e => {
+      if (e.code === 'Space') {
+        spacePressed = false;
+        if (!panDrag) svg.style.cursor = 'default';
+      }
+    });
+
+    // Initialisation au chargement
+    initLevelSelector();
+    render();
+  </script>
+</body>
+</html>
